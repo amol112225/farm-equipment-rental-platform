@@ -8,6 +8,7 @@ import { Sparkles, ArrowRight, Tractor } from 'lucide-react';
 /**
  * Production-ready, responsive Featured Equipment section component.
  * Showcases curated top-rated equipment listings with filtering badge and actions.
+ * Reuses the existing EquipmentCard and Button components.
  */
 export const FeaturedEquipment = ({
   equipmentList = MOCK_FEATURED_EQUIPMENT,
@@ -43,7 +44,7 @@ export const FeaturedEquipment = ({
             </p>
           </div>
 
-          {/* View All CTA Button */}
+          {/* View All Equipment CTA Button (Reusing UI Button) */}
           <Button
             variant="outline"
             size="md"
@@ -51,13 +52,13 @@ export const FeaturedEquipment = ({
             rightIcon={<ArrowRight className="w-4 h-4" />}
             className="self-start md:self-auto font-semibold border-slate-300 text-slate-700 hover:bg-slate-50 shrink-0"
           >
-            Explore All Listings
+            View All Equipment
           </Button>
         </div>
 
-        {/* Equipment Cards Responsive Grid */}
+        {/* Equipment Cards Responsive Grid (Mobile: 1, Tablet: 2, Laptop: 3, Desktop: 4) */}
         {equipmentList.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 sm:gap-6">
             {equipmentList.map((item) => (
               <EquipmentCard
                 key={item.id}

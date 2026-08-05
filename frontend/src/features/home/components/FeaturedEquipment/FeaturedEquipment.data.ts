@@ -135,4 +135,48 @@ export const MOCK_FEATURED_EQUIPMENT: EquipmentItem[] = [
       modelYear: '2022',
     },
   },
+  {
+    id: 'eq-107',
+    name: 'New Holland 3630 TX Special Edition',
+    category: 'Tractors',
+    imageUrl:
+      'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=800&q=80',
+    pricePerDay: 2400,
+    location: 'Hisar, Haryana',
+    distance: '9.3 km away',
+    ownerName: 'Amit Bhardwaj',
+    ownerAvatarUrl:
+      'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=150&q=80',
+    isOwnerVerified: true,
+    rating: 4.9,
+    reviewCount: 51,
+    isAvailable: true,
+    bookingType: 'instant',
+    specs: {
+      power: '55 HP',
+      fuelType: 'Diesel',
+      modelYear: '2023',
+    },
+  },
+  {
+    id: 'eq-108',
+    name: 'Lemken 3-Bottom Reversible Hydraulic Plough',
+    category: 'Tillage Equipment',
+    imageUrl:
+      'https://images.unsplash.com/photo-1595246140625-573b715d11dc?auto=format&fit=crop&w=800&q=80',
+    pricePerDay: 1350,
+    location: 'Rohtak, Haryana',
+    distance: '5.8 km away',
+    ownerName: 'Virender Malik',
+    isOwnerVerified: true,
+    rating: 4.7,
+    reviewCount: 22,
+    isAvailable: true,
+    bookingType: 'instant',
+    specs: {
+      power: '50 HP Req.',
+      fuelType: 'Hydraulic',
+      modelYear: '2023',
+    },
+  },
 ];
