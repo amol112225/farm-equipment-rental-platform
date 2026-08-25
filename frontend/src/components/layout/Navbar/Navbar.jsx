@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import logo from '../../../assets/images/agro-rent-logo.png';
+import logo from "../assets/images/agro-rent-logo.png";
 
 /**
  * Navbar component for the Farm Equipment Rental Platform.
@@ -24,14 +24,14 @@ const Navbar = () => {
     <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-xs">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" aria-label="Main Navigation">
         <div className="flex items-center justify-between h-16">
-          
+
           {/* 1. Left side: Farm Equipment Rental Logo & Name */}
           <div className="flex items-center">
             <a href="#" className="flex items-center space-x-3 group">
               <img
                 src={logo}
                 alt="AgroRent"
-                className="w-10 h-10 object-contain"
+                className="w-20 h-20"
               />
               <div className="flex flex-col">
                 <span className="text-lg font-bold text-slate-900 tracking-tight leading-tight group-hover:text-emerald-700 transition-colors">
@@ -53,11 +53,10 @@ const Navbar = () => {
                   key={item.label}
                   href={item.href}
                   onClick={() => setActiveLink(item.label)}
-                  className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    isActive
-                      ? 'text-emerald-700 bg-emerald-50 font-semibold'
-                      : 'text-slate-600 hover:text-emerald-700 hover:bg-slate-50'
-                  }`}
+                  className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive
+                    ? 'text-emerald-700 bg-emerald-50 font-semibold'
+                    : 'text-slate-600 hover:text-emerald-700 hover:bg-slate-50'
+                    }`}
                 >
                   {item.label}
                 </a>
@@ -119,11 +118,10 @@ const Navbar = () => {
                     setActiveLink(item.label);
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                    isActive
-                      ? 'text-emerald-700 bg-emerald-50 font-semibold'
-                      : 'text-slate-600 hover:text-emerald-700 hover:bg-slate-50'
-                  }`}
+                  className={`px-3 py-2 rounded-md text-base font-medium transition-colors ${isActive
+                    ? 'text-emerald-700 bg-emerald-50 font-semibold'
+                    : 'text-slate-600 hover:text-emerald-700 hover:bg-slate-50'
+                    }`}
                 >
                   {item.label}
                 </a>
