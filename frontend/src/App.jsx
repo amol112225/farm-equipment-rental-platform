@@ -1,11 +1,18 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import React from 'react';
+import Home from './pages/Home';
+import { AuthProvider } from './context/AuthContext';
+import './App.css';
 
 function App() {
-
+  return (
+    <AuthProvider>
+      <div className="App">
+        <Home />
+      </div>
+    </AuthProvider>
+  );
 }
 
-export default App
+export default App;
+
+

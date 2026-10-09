@@ -2,7 +2,7 @@ import React from 'react';
 
 /**
  * EquipmentCard Component
- * Reusable card to display farm equipment information.
+ * Reusable card to display farm equipment information with action buttons.
  * 
  * Props:
  * @param {string} image - URL or path of the equipment image
@@ -11,6 +11,7 @@ import React from 'react';
  * @param {string} priceUnit - Rental duration unit ('hour' | 'day')
  * @param {string} bookingType - Booking mode ('instant' | 'request' | 'both')
  * @param {string} distance - Distance from user (e.g. '4.2 km' or '4.2 km away')
+ * @param {function} onSelect - Callback when clicking card or Book button
  */
 const EquipmentCard = ({
   image,
@@ -19,6 +20,8 @@ const EquipmentCard = ({
   priceUnit = 'hour',
   bookingType,
   distance,
+  category,
+  onSelect,
 }) => {
   // Format price with Indian Rupee symbol and commas if numeric
   const formattedPrice =
@@ -37,19 +40,19 @@ const EquipmentCard = ({
     switch (type.toLowerCase()) {
       case 'instant':
         return {
-          label: 'Instant Booking',
+          label: '⚡ Instant Booking',
           styles: 'bg-emerald-50 text-emerald-700 border-emerald-200',
         };
       case 'request':
         return {
-          label: 'Request to Book',
+          label: '📝 Request to Book',
           styles: 'bg-amber-50 text-amber-700 border-amber-200',
         };
       case 'both':
       case 'instant+request':
       case 'instant + request':
         return {
-          label: 'Instant + Request',
+          label: '⚡ Instant / Request',
           styles: 'bg-indigo-50 text-indigo-700 border-indigo-200',
         };
       default:
@@ -70,14 +73,17 @@ const EquipmentCard = ({
     : null;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs hover:shadow-md transition-all duration-200 flex flex-col w-full max-w-sm">
+    <div 
+      onClick={onSelect}
+      className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col w-full group cursor-pointer border-slate-200 hover:border-emerald-500/50"
+    >
       {/* 1. Equipment Image */}
       <div className="relative w-full h-48 sm:h-52 bg-slate-100 overflow-hidden">
         {image ? (
           <img
             src={image}
             alt={name || 'Farm equipment'}
-            className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-slate-400">
@@ -97,43 +103,70 @@ const EquipmentCard = ({
             </svg>
           </div>
         )}
+        
+        {/* Category Pill Tag on Top Left */}
+        {category && (
+          <div className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded-full">
+            {category}
+          </div>
+        )}
       </div>
 
       {/* Card Content Body */}
-      <div className="p-4 sm:p-5 flex flex-col flex-grow space-y-3">
-        {/* 2. Equipment Name */}
-        <h3 className="text-lg font-bold text-slate-900 line-clamp-1 tracking-tight">
-          {name || 'Equipment Name'}
-        </h3>
+      <div className="p-4 sm:p-5 flex flex-col flex-grow justify-between space-y-3">
+        <div className="space-y-2">
+          {/* Equipment Name */}
+          <h3 className="text-base sm:text-lg font-bold text-slate-900 line-clamp-1 tracking-tight group-hover:text-emerald-700 transition-colors">
+            {name || 'Equipment Name'}
+          </h3>
 
-        {/* 3. Rental Price */}
-        {formattedPrice && (
-          <div className="text-base font-bold text-emerald-700">
-            {formattedPrice} <span className="text-sm font-normal text-slate-500">/ {normalizedUnit}</span>
-          </div>
-        )}
+          {/* Rental Price */}
+          {formattedPrice && (
+            <div className="text-base font-bold text-emerald-700">
+              {formattedPrice} <span className="text-xs font-normal text-slate-500">/ {normalizedUnit}</span>
+            </div>
+          )}
+        </div>
 
-        {/* 4. Booking Type Badge */}
-        {badge && (
-          <div>
-            <span
-              className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border ${badge.styles}`}
-            >
-              {badge.label}
-            </span>
-          </div>
-        )}
+        <div className="space-y-3 pt-1 border-t border-slate-100">
+          <div className="flex items-center justify-between text-xs">
+            {/* Booking Type Badge */}
+            {badge && (
+              <span
+                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${badge.styles}`}
+              >
+                {badge.label}
+              </span>
+            )}
 
-        {/* 5. Distance (Only displayed if distance prop is present) */}
-        {formattedDistance && (
-          <div className="pt-2 text-xs font-medium text-slate-500 flex items-center space-x-1">
-            <span>📍</span>
-            <span>{formattedDistance}</span>
+            {/* Distance */}
+            {formattedDistance && (
+              <span className="font-medium text-slate-500 flex items-center gap-1">
+                <span>📍</span>
+                <span>{formattedDistance}</span>
+              </span>
+            )}
           </div>
-        )}
+
+          {/* Action Button */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onSelect) onSelect();
+            }}
+            className="w-full bg-slate-900 group-hover:bg-emerald-600 text-white text-xs sm:text-sm font-semibold py-2.5 px-4 rounded-xl transition-all duration-200 shadow-xs flex items-center justify-center space-x-1.5"
+          >
+            <span>Rent Equipment</span>
+            <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );
 };
 
 export default EquipmentCard;
+

@@ -1,0 +1,126 @@
+package com.agrorent.backend.controller;
+
+import com.agrorent.backend.dto.ApiResponse;
+import com.agrorent.backend.dto.EquipmentCreateRequest;
+import com.agrorent.backend.dto.EquipmentResponse;
+import com.agrorent.backend.dto.EquipmentUpdateRequest;
+import com.agrorent.backend.service.EquipmentService;
+import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.security.Principal;
+import java.util.List;
+
+/**
+ * Controller handling Equipment Management REST APIs.
+ */
+@RestController
+@RequestMapping("/api/equipment")
+public class EquipmentController {
+
+    private final EquipmentService equipmentService;
+
+    @Autowired
+    public EquipmentController(EquipmentService equipmentService) {
+        this.equipmentService = equipmentService;
+    }
+
+    /**
+     * GET /api/equipment
+     * Public search & browsing endpoint for available equipment listings.
+     */
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<EquipmentResponse>>> searchPublicEquipment(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String location) {
+        List<EquipmentResponse> listings = equipmentService.searchPublicEquipment(keyword, category, location);
+        ApiResponse<List<EquipmentResponse>> response = ApiResponse.success("Equipment listings retrieved successfully", listings);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * GET /api/equipment/my
+     * Protected endpoint returning the authenticated farmer's own listings (including unavailable ones).
+     */
+    @GetMapping("/my")
+    public ResponseEntity<ApiResponse<List<EquipmentResponse>>> getFarmerOwnEquipment(Principal principal) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        List<EquipmentResponse> ownListings = equipmentService.getFarmerOwnEquipment(principal.getName());
+        ApiResponse<List<EquipmentResponse>> response = ApiResponse.success("Your equipment listings retrieved successfully", ownListings);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * GET /api/equipment/{id}
+     * Public details endpoint for an available equipment listing.
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<EquipmentResponse>> getPublicEquipmentById(@PathVariable Long id) {
+        EquipmentResponse equipment = equipmentService.getPublicEquipmentById(id);
+        ApiResponse<EquipmentResponse> response = ApiResponse.success("Equipment details retrieved successfully", equipment);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * POST /api/equipment
+     * Protected endpoint for authenticated farmers to list new equipment.
+     */
+    @PostMapping
+    public ResponseEntity<ApiResponse<EquipmentResponse>> createEquipment(
+            @Valid @RequestBody EquipmentCreateRequest request,
+            Principal principal) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        EquipmentResponse created = equipmentService.createEquipment(request, principal.getName());
+        ApiResponse<EquipmentResponse> response = ApiResponse.success("Equipment listing created successfully", created);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * PUT /api/equipment/{id}
+     * Protected endpoint for owners to update their existing equipment listing.
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<EquipmentResponse>> updateEquipment(
+            @PathVariable Long id,
+            @Valid @RequestBody EquipmentUpdateRequest request,
+            Principal principal) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        EquipmentResponse updated = equipmentService.updateEquipment(id, request, principal.getName());
+        ApiResponse<EquipmentResponse> response = ApiResponse.success("Equipment listing updated successfully", updated);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * DELETE /api/equipment/{id}
+     * Protected endpoint for owners to delete their equipment listing.
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Object>> deleteEquipment(
+            @PathVariable Long id,
+            Principal principal) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        equipmentService.deleteEquipment(id, principal.getName());
+        ApiResponse<Object> response = ApiResponse.success("Equipment listing deleted successfully", null);
+        return ResponseEntity.ok(response);
+    }
+}
