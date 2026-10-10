@@ -20,7 +20,7 @@ import java.util.Date;
 @Component
 public class JwtTokenProvider {
 
-    @Value("${JWT_SECRET:}")
+    @Value("${JWT_SECRET:${jwt.secret:agrorent_jwt_secret_key_256bit_length_requirement_satisfied_32_bytes}}")
     private String jwtSecretEnv;
 
     // Token validity duration: 24 Hours in milliseconds

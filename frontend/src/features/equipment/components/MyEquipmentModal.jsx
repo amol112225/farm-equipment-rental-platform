@@ -6,7 +6,7 @@ import { fetchMyEquipment, updateEquipment, deleteEquipment } from '../../../ser
  * MyEquipmentModal Component
  * Allows authenticated farmers to manage (view, edit availability, update, delete) their own equipment listings.
  */
-const MyEquipmentModal = ({ isOpen, onClose, onRefreshData }) => {
+const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }) => {
   if (!isOpen) return null;
 
   const { token, isAuthenticated, currentFarmer } = useAuth();
@@ -171,7 +171,24 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData }) => {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-emerald-700 px-6 py-5 text-white relative">
+        <div className="bg-emerald-700 px-6 py-5 text-white relative flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight">My Equipment Listings</h2>
+            <p className="text-xs text-emerald-100 mt-1">
+              Manage, edit, or remove your registered agricultural machinery
+            </p>
+          </div>
+          <div className="flex items-center space-x-3 pr-8">
+            {onOpenAddEquipment && (
+              <button
+                type="button"
+                onClick={onOpenAddEquipment}
+                className="px-3.5 py-1.5 bg-white text-emerald-800 hover:bg-emerald-50 font-bold text-xs rounded-lg shadow-sm transition-colors flex items-center space-x-1 shrink-0"
+              >
+                <span>+ List New Equipment</span>
+              </button>
+            )}
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -182,10 +199,6 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData }) => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          <h2 className="text-xl font-bold tracking-tight">My Equipment Listings</h2>
-          <p className="text-xs text-emerald-100 mt-1">
-            Manage, edit, or remove your registered agricultural machinery
-          </p>
         </div>
 
         {/* Scroll Body */}
@@ -409,15 +422,20 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData }) => {
                   <p className="text-sm">Loading your equipment listings...</p>
                 </div>
               ) : myListings.length === 0 ? (
-                <div className="py-10 text-center bg-slate-50 border border-dashed border-slate-300 rounded-xl space-y-2">
+                <div className="py-10 px-6 text-center bg-slate-50 border border-dashed border-slate-300 rounded-xl space-y-2">
                   <span className="text-3xl">🚜</span>
                   <h4 className="text-sm font-bold text-slate-800">No equipment listings yet</h4>
-                  <p className="text-xs text-slate-500">
-                    You haven't added any machinery to AgroRent. Click "List Your Equipment" to create your first listing.
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    You haven't added any machinery to AgroRent yet. Use the "+ List New Equipment" button above to add a listing.
                   </p>
                 </div>
               ) : (
                 <div className="space-y-3">
+                  <div className="flex items-center justify-between bg-emerald-50/60 border border-emerald-100 rounded-xl px-4 py-2.5">
+                    <span className="text-xs font-semibold text-emerald-900">
+                      Total Listed Machinery: <strong>{myListings.length}</strong>
+                    </span>
+                  </div>
                   {myListings.map((item) => (
                     <div
                       key={item.id}

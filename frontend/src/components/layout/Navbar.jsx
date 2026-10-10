@@ -7,7 +7,7 @@ import AuthModal from '../../features/auth/components/AuthModal';
  * Navbar component for the Farm Equipment Rental Platform.
  * Integrated with AuthContext, AuthModal, Equipment Management, and My Bookings modal triggers.
  */
-const Navbar = ({ onOpenAddEquipment, onOpenMyEquipment, onOpenMyBookings }) => {
+const Navbar = ({ onOpenMyBookings, onOpenOwnerDashboard, onNavigateToHome, currentPage = 'home' }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState('login');
@@ -28,12 +28,22 @@ const Navbar = ({ onOpenAddEquipment, onOpenMyEquipment, onOpenMyBookings }) => 
     }
   };
 
-  const handleOpenEquipments = () => {
+  const handleOpenOwnerDashboard = () => {
     setIsMobileMenuOpen(false);
     if (isAuthenticated) {
-      if (onOpenMyEquipment) onOpenMyEquipment();
+      if (onOpenOwnerDashboard) onOpenOwnerDashboard();
     } else {
       openAuth('login');
+    }
+  };
+
+  const handleLogoClick = (e) => {
+    e.preventDefault();
+    setIsMobileMenuOpen(false);
+    if (onNavigateToHome) {
+      onNavigateToHome();
+    } else {
+      window.location.hash = 'home';
     }
   };
 
@@ -49,7 +59,11 @@ const Navbar = ({ onOpenAddEquipment, onOpenMyEquipment, onOpenMyBookings }) => 
 
             {/* 1. Left side: AgroRent Logo & Name */}
             <div className="flex items-center">
-              <a href="#home" className="flex items-center space-x-3 group">
+              <a
+                href="#home"
+                onClick={handleLogoClick}
+                className="flex items-center space-x-3 group"
+              >
                 <img
                   src={logo}
                   alt="AgroRent Logo"
@@ -66,21 +80,27 @@ const Navbar = ({ onOpenAddEquipment, onOpenMyEquipment, onOpenMyBookings }) => 
               </a>
             </div>
 
-            {/* 2. Middle: My Bookings & My Equipments Links */}
-            <div className="hidden md:flex items-center space-x-4">
+            {/* 2. Middle: My Bookings & Owner Dashboard Links */}
+            <div className="hidden md:flex items-center space-x-3">
               <button
                 type="button"
                 onClick={handleOpenBookings}
-                className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/60 transition-all duration-200"
+                className={`px-3.5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${currentPage === 'my-bookings'
+                    ? 'text-emerald-700 bg-emerald-50 font-bold border border-emerald-200'
+                    : 'text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/60'
+                  }`}
               >
-                My Bookings
+                Rental Dashboard
               </button>
               <button
                 type="button"
-                onClick={handleOpenEquipments}
-                className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/60 transition-all duration-200"
+                onClick={handleOpenOwnerDashboard}
+                className={`px-3.5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${currentPage === 'owner-dashboard'
+                    ? 'text-emerald-700 bg-emerald-50 font-bold border border-emerald-200'
+                    : 'text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/60'
+                  }`}
               >
-                My Equipments
+                Owner Dashboard
               </button>
             </div>
 
@@ -152,17 +172,24 @@ const Navbar = ({ onOpenAddEquipment, onOpenMyEquipment, onOpenMyBookings }) => 
               <button
                 type="button"
                 onClick={handleOpenBookings}
-                className="w-full text-left px-3 py-2 text-base font-semibold text-slate-800 hover:bg-emerald-50 rounded-lg"
+                className={`w-full text-left px-3 py-2 text-base font-semibold rounded-lg ${currentPage === 'my-bookings'
+                    ? 'text-emerald-700 bg-emerald-50 font-bold'
+                    : 'text-slate-800 hover:bg-emerald-50'
+                  }`}
               >
                 My Bookings
               </button>
               <button
                 type="button"
-                onClick={handleOpenEquipments}
-                className="w-full text-left px-3 py-2 text-base font-semibold text-slate-800 hover:bg-emerald-50 rounded-lg"
+                onClick={handleOpenOwnerDashboard}
+                className={`w-full text-left px-3 py-2 text-base font-semibold rounded-lg ${currentPage === 'owner-dashboard'
+                    ? 'text-emerald-700 bg-emerald-50 font-bold'
+                    : 'text-slate-800 hover:bg-emerald-50'
+                  }`}
               >
-                My Equipments
+                Owner Dashboard
               </button>
+
             </div>
 
             <div className="pt-3 border-t border-slate-200 flex flex-col space-y-2">

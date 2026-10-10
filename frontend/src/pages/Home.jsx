@@ -19,7 +19,7 @@ const DEFAULT_FALLBACK_IMAGE =
  * Integrated with Spring Boot REST API for public equipment browsing,
  * rental booking creation, equipment management, and booking history modals.
  */
-const Home = () => {
+const Home = ({ onNavigateToOwnerDashboard, onNavigateToMyBookings }) => {
   const { isAuthenticated } = useAuth();
 
   // Search & Filter State
@@ -89,7 +89,7 @@ const Home = () => {
     setSelectedEquipment(null);
     const status = createdBooking?.status?.toUpperCase();
     const bookingId = createdBooking?.id ? `#${createdBooking.id}` : '';
-    
+
     let msg;
     if (status === 'APPROVED') {
       msg = `🎉 Booking ${bookingId} confirmed! Your rental has been instantly approved.`;
@@ -133,11 +133,10 @@ const Home = () => {
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       {/* Header Navigation */}
       <Navbar
-        onNavClick={handleNavClick}
-        onOpenAddEquipment={() => setIsAddModalOpen(true)}
-        onOpenMyEquipment={() => setIsMyModalOpen(true)}
-        onOpenMyBookings={() => setIsMyBookingsOpen(true)}
-        onOpenOwnerDashboard={() => setIsOwnerDashboardOpen(true)}
+        currentPage="home"
+        onOpenMyBookings={onNavigateToMyBookings}
+        onOpenOwnerDashboard={onNavigateToOwnerDashboard}
+        onNavigateToHome={() => {}}
       />
 
       {/* Unobtrusive Notice for Pending Actions */}
