@@ -3,29 +3,7 @@
  * Handles REST requests to Spring Boot backend for Farmer Registration, Login, and Profile verification.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
-
-/**
- * Helper to handle HTTP response parsing and error throwing.
- */
-async function handleResponse(response) {
-  let json;
-  try {
-    json = await response.json();
-  } catch (e) {
-    json = null;
-  }
-
-  if (!response.ok) {
-    const errorMsg = json?.message || `Server error (${response.status})`;
-    const error = new Error(errorMsg);
-    error.status = response.status;
-    error.errors = json?.errors || null;
-    throw error;
-  }
-
-  return json;
-}
+import { API_BASE_URL, handleResponse } from './api';
 
 /**
  * Register a new Farmer account.
