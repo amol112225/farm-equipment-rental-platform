@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { fetchOwnerRatingSummary } from '../../../services/reviewService';
+import { fetchEquipmentRatingSummary } from '../../../services/reviewService';
 
 /**
  * EquipmentCard Component
- * Reusable card to display farm equipment information with action buttons and owner rating.
+ * Reusable card to display farm equipment information with action buttons and equipment rating.
  * 
  * Props:
+ * @param {number} id - Equipment ID
+ * @param {number} equipmentId - Alternative prop for equipment ID
  * @param {string} image - URL or path of the equipment image
  * @param {string} name - Name of the equipment
  * @param {number|string} price - Rental price amount
@@ -13,12 +15,17 @@ import { fetchOwnerRatingSummary } from '../../../services/reviewService';
  * @param {string} bookingType - Booking mode ('instant' | 'request' | 'both')
  * @param {string} distance - Distance from user (e.g. '4.2 km' or '4.2 km away')
  * @param {string} category - Equipment category
- * @param {number} ownerId - Owner ID for rating lookup
+ * @param {number} ownerId - Owner ID
  * @param {string} ownerName - Owner full name
- * @param {Object} ownerRatingSummary - Optional pre-loaded owner rating summary
+ * @param {number} rating - Equipment average rating
+ * @param {number} totalReviews - Equipment review count
+ * @param {Object} ratingSummary - Optional pre-loaded equipment rating summary
  * @param {function} onSelect - Callback when clicking card or Book button
+ * @param {function} onViewReviews - Callback when clicking rating badge
  */
 const EquipmentCard = ({
+  id,
+  equipmentId,
   image,
   name,
   price,
@@ -28,44 +35,53 @@ const EquipmentCard = ({
   category,
   ownerId,
   ownerName,
+  rating,
+  totalReviews,
+  ratingSummary: initialRatingSummary,
   ownerRating,
   ownerTotalReviews,
   ownerRatingSummary,
   onSelect,
   onViewReviews,
 }) => {
+  const targetEquipmentId = id || equipmentId;
+  const propRating = rating !== undefined && rating !== null ? rating : ownerRating;
+  const propTotalReviews =
+    totalReviews !== undefined && totalReviews !== null ? totalReviews : ownerTotalReviews;
+  const activeInitialSummary = initialRatingSummary || ownerRatingSummary;
+
   const [ratingSummary, setRatingSummary] = useState(
-    ownerRatingSummary ||
-      (ownerRating !== undefined && ownerRating !== null
+    activeInitialSummary ||
+      (propRating !== undefined && propRating !== null
         ? {
-            averageRating: Number(ownerRating) || 0.0,
-            totalReviews: Number(ownerTotalReviews) || 0,
+            averageRating: Number(propRating) || 0.0,
+            totalReviews: Number(propTotalReviews) || 0,
           }
         : null)
   );
 
   useEffect(() => {
-    if (ownerRatingSummary) {
-      setRatingSummary(ownerRatingSummary);
+    if (activeInitialSummary) {
+      setRatingSummary(activeInitialSummary);
       return;
     }
 
     if (
-      ownerRating !== undefined &&
-      ownerRating !== null &&
-      ownerTotalReviews !== undefined &&
-      ownerTotalReviews !== null
+      propRating !== undefined &&
+      propRating !== null &&
+      propTotalReviews !== undefined &&
+      propTotalReviews !== null
     ) {
       setRatingSummary({
-        averageRating: Number(ownerRating) || 0.0,
-        totalReviews: Number(ownerTotalReviews) || 0,
+        averageRating: Number(propRating) || 0.0,
+        totalReviews: Number(propTotalReviews) || 0,
       });
       return;
     }
 
-    if (ownerId) {
+    if (targetEquipmentId) {
       let isMounted = true;
-      fetchOwnerRatingSummary(ownerId)
+      fetchEquipmentRatingSummary(targetEquipmentId)
         .then((res) => {
           if (isMounted && res?.data) {
             setRatingSummary(res.data);
@@ -78,7 +94,29 @@ const EquipmentCard = ({
         isMounted = false;
       };
     }
-  }, [ownerId, ownerRating, ownerTotalReviews, ownerRatingSummary]);
+  }, [targetEquipmentId, propRating, propTotalReviews, activeInitialSummary]);
+
+  useEffect(() => {
+    const handleReviewSubmitted = (e) => {
+      if (
+        targetEquipmentId &&
+        (!e.detail?.equipmentId || e.detail.equipmentId === targetEquipmentId)
+      ) {
+        fetchEquipmentRatingSummary(targetEquipmentId, false)
+          .then((res) => {
+            if (res?.data) {
+              setRatingSummary(res.data);
+            }
+          })
+          .catch(() => {});
+      }
+    };
+
+    window.addEventListener('agrorent:review-submitted', handleReviewSubmitted);
+    return () => {
+      window.removeEventListener('agrorent:review-submitted', handleReviewSubmitted);
+    };
+  }, [targetEquipmentId]);
   // Format price with Indian Rupee symbol and commas if numeric
   const formattedPrice =
     typeof price === 'number'
@@ -196,7 +234,7 @@ const EquipmentCard = ({
                   else if (onSelect) onSelect(true);
                 }}
                 className="inline-flex items-center gap-1 font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-md text-[11px] shrink-0 cursor-pointer transition-colors"
-                title="Click to view owner reviews"
+                title="Click to view equipment reviews"
               >
                 <span className="text-amber-500">★</span>
                 <span>{ratingSummary.averageRating.toFixed(1)}</span>
@@ -212,7 +250,7 @@ const EquipmentCard = ({
                   else if (onSelect) onSelect(true);
                 }}
                 className="inline-flex items-center gap-1 text-[11px] text-slate-500 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md shrink-0 cursor-pointer transition-colors"
-                title="Click to view owner reviews"
+                title="Click to view equipment reviews"
               >
                 <span className="text-slate-400">★</span>
                 <span>No ratings yet</span>

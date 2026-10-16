@@ -1,6 +1,7 @@
 package com.agrorent.backend.controller;
 
 import com.agrorent.backend.dto.ApiResponse;
+import com.agrorent.backend.dto.EquipmentRatingSummary;
 import com.agrorent.backend.dto.OwnerRatingSummary;
 import com.agrorent.backend.dto.ReviewCreateRequest;
 import com.agrorent.backend.dto.ReviewEligibilityResponse;
@@ -21,8 +22,8 @@ import java.security.Principal;
 import java.util.List;
 
 /**
- * REST Controller for Equipment Owner Ratings and Reviews.
- * Handles review submissions, eligibility checks, and public owner reviews/summary endpoints.
+ * REST Controller for Equipment and Owner Ratings and Reviews.
+ * Handles review submissions, eligibility checks, equipment-specific and owner-wide review endpoints.
  */
 @RestController
 @RequestMapping("/api/reviews")
@@ -49,7 +50,29 @@ public class ReviewController {
     }
 
     /**
-     * Retrieve all reviews received by a specific equipment owner.
+     * Retrieve all reviews for a specific equipment item.
+     * Public endpoint.
+     * GET /api/reviews/equipment/{equipmentId}
+     */
+    @GetMapping("/equipment/{equipmentId}")
+    public ResponseEntity<ApiResponse<List<ReviewResponse>>> getEquipmentReviews(@PathVariable Long equipmentId) {
+        List<ReviewResponse> reviews = reviewService.getReviewsByEquipment(equipmentId);
+        return ResponseEntity.ok(ApiResponse.success("Equipment reviews retrieved successfully", reviews));
+    }
+
+    /**
+     * Retrieve rating summary (average score and review count) for a specific equipment item.
+     * Public endpoint.
+     * GET /api/reviews/equipment/{equipmentId}/summary
+     */
+    @GetMapping("/equipment/{equipmentId}/summary")
+    public ResponseEntity<ApiResponse<EquipmentRatingSummary>> getEquipmentRatingSummary(@PathVariable Long equipmentId) {
+        EquipmentRatingSummary summary = reviewService.getEquipmentRatingSummary(equipmentId);
+        return ResponseEntity.ok(ApiResponse.success("Equipment rating summary retrieved successfully", summary));
+    }
+
+    /**
+     * Retrieve all reviews received by a specific equipment owner across all their listings.
      * Public endpoint.
      * GET /api/reviews/owner/{ownerId}
      */

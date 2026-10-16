@@ -50,6 +50,9 @@ const ReviewModal = ({ isOpen, booking, onClose, onSuccess }) => {
         rating: Number(rating),
         feedback: feedback.trim() ? feedback.trim() : null,
       };
+      if (booking.equipmentId) {
+        payload.equipmentId = booking.equipmentId;
+      }
 
       const response = await submitReview(payload, token);
       setSubmitSuccess(true);
@@ -93,10 +96,10 @@ const ReviewModal = ({ isOpen, booking, onClose, onSuccess }) => {
           </button>
           <div className="flex items-center space-x-2">
             <span className="text-xl">⭐</span>
-            <h2 className="text-xl font-bold tracking-tight">Rate Equipment Owner</h2>
+            <h2 className="text-xl font-bold tracking-tight">Rate Equipment & Owner</h2>
           </div>
           <p className="text-xs text-emerald-100 mt-1">
-            How was your rental experience for booking #{booking.id}?
+            How was your rental experience for {booking.equipmentName || `booking #${booking.id}`}?
           </p>
         </div>
 

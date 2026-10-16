@@ -55,7 +55,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/farmers/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/equipment", "/api/equipment/").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/equipment/{id:[0-9]+}").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/reviews/owner/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/reviews/owner/**", "/api/reviews/equipment/**").permitAll()
                         // Protected Equipment and Booking endpoint explicit rules
                         .requestMatchers("/api/equipment/my").authenticated()
                         .requestMatchers("/api/bookings/**").authenticated()

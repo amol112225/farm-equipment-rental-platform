@@ -151,11 +151,11 @@ public class EquipmentServiceImpl implements EquipmentService {
     private EquipmentResponse mapToResponse(Equipment equipment) {
         Double avgRating = 0.0;
         long totalReviews = 0L;
-        if (reviewRepository != null && equipment.getOwner() != null && equipment.getOwner().getId() != null) {
-            Long ownerId = equipment.getOwner().getId();
-            totalReviews = reviewRepository.countByOwnerId(ownerId);
+        if (reviewRepository != null && equipment.getId() != null) {
+            Long equipmentId = equipment.getId();
+            totalReviews = reviewRepository.countByEquipmentId(equipmentId);
             if (totalReviews > 0) {
-                Double rawAvg = reviewRepository.getAverageRatingByOwnerId(ownerId);
+                Double rawAvg = reviewRepository.getAverageRatingByEquipmentId(equipmentId);
                 if (rawAvg != null) {
                     avgRating = Math.round(rawAvg * 10.0) / 10.0;
                 }

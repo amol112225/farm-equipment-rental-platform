@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { createBooking } from '../../services/bookingService';
-import { fetchOwnerRatingSummary, fetchOwnerReviews } from '../../services/reviewService';
+import { fetchEquipmentRatingSummary, fetchEquipmentReviews } from '../../services/reviewService';
 
 /**
  * BookingModal Component
  * Connected to Spring Boot REST API for creating real equipment rental bookings.
- * Displays owner ratings and reviews.
+ * Displays equipment ratings and reviews.
  */
 const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfirm }) => {
   if (!equipment) return null;
@@ -27,16 +27,23 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
   const [generalError, setGeneralError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Milestone 1: Owner rating and reviews state
-  const [ownerRating, setOwnerRating] = useState(
-    equipment?.ownerRating !== undefined && equipment?.ownerRating !== null
+  // Equipment rating and reviews state
+  const propRating = equipment?.rating !== undefined && equipment?.rating !== null
+    ? equipment.rating
+    : equipment?.ownerRating;
+  const propTotalReviews = equipment?.totalReviews !== undefined && equipment?.totalReviews !== null
+    ? equipment.totalReviews
+    : equipment?.ownerTotalReviews;
+
+  const [equipmentRating, setEquipmentRating] = useState(
+    propRating !== undefined && propRating !== null
       ? {
-          averageRating: Number(equipment.ownerRating) || 0.0,
-          totalReviews: Number(equipment.ownerTotalReviews) || 0,
+          averageRating: Number(propRating) || 0.0,
+          totalReviews: Number(propTotalReviews) || 0,
         }
       : null
   );
-  const [ownerReviews, setOwnerReviews] = useState([]);
+  const [equipmentReviews, setEquipmentReviews] = useState([]);
   const [showReviews, setShowReviews] = useState(Boolean(initialShowReviews));
   const [isLoadingReviews, setIsLoadingReviews] = useState(false);
   const [reviewsError, setReviewsError] = useState('');
@@ -46,16 +53,16 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
 
   const isBothType = equipment.bookingType?.toLowerCase() === 'both';
 
-  const loadOwnerReviews = async (ownerId) => {
-    const targetOwnerId = ownerId || equipment?.ownerId;
-    if (!targetOwnerId) return;
+  const loadEquipmentReviews = async (targetId) => {
+    const equipId = targetId || equipment?.id;
+    if (!equipId) return;
     setIsLoadingReviews(true);
     setReviewsError('');
     try {
-      const res = await fetchOwnerReviews(targetOwnerId);
-      setOwnerReviews(res?.data || []);
+      const res = await fetchEquipmentReviews(equipId);
+      setEquipmentReviews(res?.data || []);
     } catch (err) {
-      setReviewsError(err.message || 'Failed to load owner reviews. Please try again.');
+      setReviewsError(err.message || 'Failed to load equipment reviews. Please try again.');
     } finally {
       setIsLoadingReviews(false);
     }
@@ -68,40 +75,40 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
     setBookingMode('instant');
     setGeneralError('');
     setShowReviews(Boolean(initialShowReviews));
-    setOwnerReviews([]);
+    setEquipmentReviews([]);
     setReviewsError('');
 
     if (
-      equipment?.ownerRating !== undefined &&
-      equipment?.ownerRating !== null &&
-      equipment?.ownerTotalReviews !== undefined &&
-      equipment?.ownerTotalReviews !== null
+      propRating !== undefined &&
+      propRating !== null &&
+      propTotalReviews !== undefined &&
+      propTotalReviews !== null
     ) {
-      setOwnerRating({
-        averageRating: Number(equipment.ownerRating) || 0.0,
-        totalReviews: Number(equipment.ownerTotalReviews) || 0,
+      setEquipmentRating({
+        averageRating: Number(propRating) || 0.0,
+        totalReviews: Number(propTotalReviews) || 0,
       });
-    } else if (equipment?.ownerId) {
-      fetchOwnerRatingSummary(equipment.ownerId)
-        .then((res) => setOwnerRating(res?.data || null))
-        .catch(() => setOwnerRating({ averageRating: 0.0, totalReviews: 0 }));
+    } else if (equipment?.id) {
+      fetchEquipmentRatingSummary(equipment.id)
+        .then((res) => setEquipmentRating(res?.data || null))
+        .catch(() => setEquipmentRating({ averageRating: 0.0, totalReviews: 0 }));
     } else {
-      setOwnerRating(null);
+      setEquipmentRating(null);
     }
 
-    if (initialShowReviews && equipment?.ownerId) {
-      loadOwnerReviews(equipment.ownerId);
+    if (initialShowReviews && equipment?.id) {
+      loadEquipmentReviews(equipment.id);
     }
-  }, [equipment, initialShowReviews]);
+  }, [equipment, initialShowReviews, propRating, propTotalReviews]);
 
   useEffect(() => {
     const handleReviewSubmitted = (e) => {
-      if (equipment?.ownerId && (!e.detail?.ownerId || e.detail.ownerId === equipment.ownerId)) {
-        fetchOwnerRatingSummary(equipment.ownerId, false)
-          .then((res) => setOwnerRating(res?.data || null))
+      if (equipment?.id && (!e.detail?.equipmentId || e.detail.equipmentId === equipment.id)) {
+        fetchEquipmentRatingSummary(equipment.id, false)
+          .then((res) => setEquipmentRating(res?.data || null))
           .catch(() => {});
         if (showReviews) {
-          loadOwnerReviews(equipment.ownerId);
+          loadEquipmentReviews(equipment.id);
         }
       }
     };
@@ -109,13 +116,13 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
     return () => {
       window.removeEventListener('agrorent:review-submitted', handleReviewSubmitted);
     };
-  }, [equipment?.ownerId, showReviews]);
+  }, [equipment?.id, showReviews]);
 
   const handleToggleReviews = async () => {
     if (!showReviews) {
       setShowReviews(true);
-      if (ownerReviews.length === 0 || reviewsError) {
-        await loadOwnerReviews(equipment?.ownerId);
+      if (equipmentReviews.length === 0 || reviewsError) {
+        await loadEquipmentReviews(equipment?.id);
       }
     } else {
       setShowReviews(false);
@@ -239,14 +246,14 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
                   type="button"
                   onClick={handleToggleReviews}
                   className="inline-flex items-center gap-1.5 font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
-                  title="Click to view owner reviews"
+                  title="Click to view equipment reviews"
                 >
                   <span>⭐</span>
-                  {ownerRating && ownerRating.totalReviews > 0 ? (
+                  {equipmentRating && equipmentRating.totalReviews > 0 ? (
                     <>
-                      <span>{ownerRating.averageRating.toFixed(1)}</span>
+                      <span>{equipmentRating.averageRating.toFixed(1)}</span>
                       <span className="text-amber-800 font-normal">
-                        ({ownerRating.totalReviews} review{ownerRating.totalReviews > 1 ? 's' : ''})
+                        ({equipmentRating.totalReviews} review{equipmentRating.totalReviews > 1 ? 's' : ''})
                       </span>
                     </>
                   ) : (
@@ -256,11 +263,11 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
               </div>
             </div>
 
-            {/* Expandable Owner Reviews Drawer */}
+            {/* Expandable Equipment Reviews Drawer */}
             {showReviews && (
               <div className="pt-2 border-t border-slate-200 mt-2 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-700">Recent Renter Reviews</span>
+                  <span className="font-bold text-slate-700">Recent Equipment Reviews</span>
                   <button
                     type="button"
                     onClick={handleToggleReviews}
@@ -280,19 +287,19 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
                     <p className="text-xs text-red-700 font-medium">{reviewsError}</p>
                     <button
                       type="button"
-                      onClick={() => loadOwnerReviews(equipment?.ownerId)}
+                      onClick={() => loadEquipmentReviews(equipment?.id)}
                       className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[11px] font-semibold transition-colors cursor-pointer"
                     >
                       Retry
                     </button>
                   </div>
-                ) : ownerReviews.length === 0 ? (
+                ) : equipmentReviews.length === 0 ? (
                   <div className="py-3 text-slate-500 text-center italic text-xs">
-                    No reviews yet.
+                    No reviews yet for this equipment.
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                    {ownerReviews.map((rev) => (
+                    {equipmentReviews.map((rev) => (
                       <div key={rev.id} className="bg-white p-2.5 rounded-lg border border-slate-100 space-y-1">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-1">

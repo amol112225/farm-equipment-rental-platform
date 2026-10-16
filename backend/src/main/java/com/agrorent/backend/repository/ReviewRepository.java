@@ -48,4 +48,21 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
      */
     @Query("SELECT AVG(r.rating) FROM Review r WHERE r.owner.id = :ownerId")
     Double getAverageRatingByOwnerId(@Param("ownerId") Long ownerId);
+
+    /**
+     * Finds all reviews for a specific equipment item, ordered newest first.
+     */
+    List<Review> findByEquipmentIdOrderByCreatedAtDesc(Long equipmentId);
+
+    /**
+     * Counts the total number of reviews for a specific equipment item.
+     */
+    long countByEquipmentId(Long equipmentId);
+
+    /**
+     * Calculates the average rating for a specific equipment item.
+     * Returns null if no reviews exist.
+     */
+    @Query("SELECT AVG(r.rating) FROM Review r WHERE r.equipment.id = :equipmentId")
+    Double getAverageRatingByEquipmentId(@Param("equipmentId") Long equipmentId);
 }

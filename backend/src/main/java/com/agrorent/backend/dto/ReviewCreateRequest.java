@@ -13,6 +13,8 @@ public class ReviewCreateRequest {
     @NotNull(message = "Booking ID is required")
     private Long bookingId;
 
+    private Long equipmentId;
+
     @NotNull(message = "Rating is required")
     @Min(value = 1, message = "Rating must be between 1 and 5 stars")
     @Max(value = 5, message = "Rating must be between 1 and 5 stars")
@@ -25,7 +27,12 @@ public class ReviewCreateRequest {
     }
 
     public ReviewCreateRequest(Long bookingId, Integer rating, String feedback) {
+        this(bookingId, null, rating, feedback);
+    }
+
+    public ReviewCreateRequest(Long bookingId, Long equipmentId, Integer rating, String feedback) {
         this.bookingId = bookingId;
+        this.equipmentId = equipmentId;
         this.rating = rating;
         this.feedback = feedback;
     }
@@ -36,6 +43,14 @@ public class ReviewCreateRequest {
 
     public void setBookingId(Long bookingId) {
         this.bookingId = bookingId;
+    }
+
+    public Long getEquipmentId() {
+        return equipmentId;
+    }
+
+    public void setEquipmentId(Long equipmentId) {
+        this.equipmentId = equipmentId;
     }
 
     public Integer getRating() {

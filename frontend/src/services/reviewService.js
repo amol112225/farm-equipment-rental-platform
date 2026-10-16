@@ -1,16 +1,17 @@
 import { API_BASE_URL, handleResponse } from './api';
 
 /**
- * Service module for Owner Ratings & Reviews API communication.
+ * Service module for Equipment and Owner Ratings & Reviews API communication.
  */
 
-// Memory cache for owner rating summaries to avoid duplicate requests across equipment cards
+// Memory caches for equipment and owner rating summaries to avoid duplicate requests
+const equipmentRatingCache = new Map();
 const ownerRatingCache = new Map();
 
 /**
  * Submit a star rating and optional feedback for a completed booking.
  *
- * @param {Object} payload - { bookingId: number, rating: number, feedback?: string }
+ * @param {Object} payload - { bookingId: number, rating: number, feedback?: string, equipmentId?: number }
  * @param {string} token - Authenticated renter JWT token
  * @returns {Promise<any>}
  */
@@ -25,7 +26,14 @@ export async function submitReview(payload, token) {
   });
 
   const json = await handleResponse(response);
-  // Invalidate cache for this owner if cached
+
+  // Invalidate cache for this equipment and owner if cached
+  if (json?.data?.equipmentId) {
+    equipmentRatingCache.delete(json.data.equipmentId);
+  } else {
+    equipmentRatingCache.clear();
+  }
+
   if (json?.data?.ownerId) {
     ownerRatingCache.delete(json.data.ownerId);
   } else {
@@ -35,7 +43,11 @@ export async function submitReview(payload, token) {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(
       new CustomEvent('agrorent:review-submitted', {
-        detail: { ownerId: json?.data?.ownerId, bookingId: payload?.bookingId },
+        detail: {
+          ownerId: json?.data?.ownerId,
+          equipmentId: json?.data?.equipmentId,
+          bookingId: payload?.bookingId,
+        },
       })
     );
   }
@@ -44,7 +56,55 @@ export async function submitReview(payload, token) {
 }
 
 /**
- * Fetch all reviews received by a specific equipment owner.
+ * Fetch all reviews for a specific equipment item.
+ *
+ * @param {number} equipmentId
+ * @returns {Promise<any>}
+ */
+export async function fetchEquipmentReviews(equipmentId) {
+  const response = await fetch(`${API_BASE_URL}/reviews/equipment/${equipmentId}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  return handleResponse(response);
+}
+
+/**
+ * Fetch rating summary (average score and total reviews) for a specific equipment item.
+ *
+ * @param {number} equipmentId
+ * @param {boolean} [useCache=true]
+ * @returns {Promise<any>}
+ */
+export async function fetchEquipmentRatingSummary(equipmentId, useCache = true) {
+  if (useCache && equipmentRatingCache.has(equipmentId)) {
+    return equipmentRatingCache.get(equipmentId);
+  }
+
+  const promise = fetch(`${API_BASE_URL}/reviews/equipment/${equipmentId}/summary`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+    .then(handleResponse)
+    .catch((err) => {
+      equipmentRatingCache.delete(equipmentId);
+      throw err;
+    });
+
+  if (useCache) {
+    equipmentRatingCache.set(equipmentId, promise);
+  }
+
+  return promise;
+}
+
+/**
+ * Fetch all reviews received by a specific equipment owner across all their equipment.
  *
  * @param {number} ownerId
  * @returns {Promise<any>}

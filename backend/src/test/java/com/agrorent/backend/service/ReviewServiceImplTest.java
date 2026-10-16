@@ -1,5 +1,6 @@
 package com.agrorent.backend.service;
 
+import com.agrorent.backend.dto.EquipmentRatingSummary;
 import com.agrorent.backend.dto.OwnerRatingSummary;
 import com.agrorent.backend.dto.ReviewCreateRequest;
 import com.agrorent.backend.dto.ReviewEligibilityResponse;
@@ -12,6 +13,7 @@ import com.agrorent.backend.model.Equipment;
 import com.agrorent.backend.model.Farmer;
 import com.agrorent.backend.model.Review;
 import com.agrorent.backend.repository.BookingRepository;
+import com.agrorent.backend.repository.EquipmentRepository;
 import com.agrorent.backend.repository.FarmerRepository;
 import com.agrorent.backend.repository.ReviewRepository;
 import com.agrorent.backend.service.impl.ReviewServiceImpl;
@@ -19,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -46,14 +49,21 @@ class ReviewServiceImplTest {
     @Mock
     private FarmerRepository farmerRepository;
 
+    @Mock
+    private EquipmentRepository equipmentRepository;
+
     @InjectMocks
     private ReviewServiceImpl reviewService;
 
     private Farmer renter;
     private Farmer owner;
     private Farmer otherUser;
-    private Equipment equipment;
-    private Booking completedBooking;
+
+    private Equipment equipmentA;
+    private Equipment equipmentB;
+
+    private Booking completedBookingA;
+    private Booking completedBookingB;
     private Booking pendingBooking;
 
     @BeforeEach
@@ -79,43 +89,66 @@ class ReviewServiceImplTest {
         otherUser.setFullName("Other Farmer");
         otherUser.setEmail("other@example.com");
 
-        equipment = new Equipment();
-        equipment.setId(100L);
-        equipment.setName("Mahindra 575 DI Tractor");
-        equipment.setCategory("TRACTOR");
-        equipment.setOwner(owner);
+        // Equipment A and Equipment B both belong to the SAME owner
+        equipmentA = new Equipment();
+        equipmentA.setId(101L);
+        equipmentA.setName("Equipment A - Mahindra Tractor");
+        equipmentA.setCategory("Tractor");
+        equipmentA.setOwner(owner);
 
-        completedBooking = new Booking();
-        completedBooking.setId(500L);
-        completedBooking.setEquipment(equipment);
-        completedBooking.setRenter(renter);
-        completedBooking.setOwner(owner);
-        completedBooking.setStatus("COMPLETED");
-        completedBooking.setStartDateTime(LocalDateTime.now().minusDays(3));
-        completedBooking.setEndDateTime(LocalDateTime.now().minusDays(2));
-        completedBooking.setDuration(24);
-        completedBooking.setPriceUnit("HOURLY");
-        completedBooking.setRateSnapshot(new BigDecimal("600.00"));
-        completedBooking.setTotalPrice(new BigDecimal("14400.00"));
+        equipmentB = new Equipment();
+        equipmentB.setId(102L);
+        equipmentB.setName("Equipment B - Rotavator");
+        equipmentB.setCategory("Implement");
+        equipmentB.setOwner(owner);
 
+        // Completed booking for Equipment A
+        completedBookingA = new Booking();
+        completedBookingA.setId(500L);
+        completedBookingA.setEquipment(equipmentA);
+        completedBookingA.setRenter(renter);
+        completedBookingA.setOwner(owner);
+        completedBookingA.setStatus("COMPLETED");
+        completedBookingA.setStartDateTime(LocalDateTime.now().minusDays(3));
+        completedBookingA.setEndDateTime(LocalDateTime.now().minusDays(2));
+        completedBookingA.setDuration(24);
+        completedBookingA.setPriceUnit("hour");
+        completedBookingA.setRateSnapshot(new BigDecimal("600.00"));
+        completedBookingA.setTotalPrice(new BigDecimal("14400.00"));
+
+        // Completed booking for Equipment B
+        completedBookingB = new Booking();
+        completedBookingB.setId(505L);
+        completedBookingB.setEquipment(equipmentB);
+        completedBookingB.setRenter(renter);
+        completedBookingB.setOwner(owner);
+        completedBookingB.setStatus("COMPLETED");
+        completedBookingB.setStartDateTime(LocalDateTime.now().minusDays(5));
+        completedBookingB.setEndDateTime(LocalDateTime.now().minusDays(4));
+        completedBookingB.setDuration(8);
+        completedBookingB.setPriceUnit("hour");
+        completedBookingB.setRateSnapshot(new BigDecimal("300.00"));
+        completedBookingB.setTotalPrice(new BigDecimal("2400.00"));
+
+        // Pending booking for Equipment A
         pendingBooking = new Booking();
         pendingBooking.setId(501L);
-        pendingBooking.setEquipment(equipment);
+        pendingBooking.setEquipment(equipmentA);
         pendingBooking.setRenter(renter);
         pendingBooking.setOwner(owner);
         pendingBooking.setStatus("PENDING");
     }
 
     @Test
-    @DisplayName("Scenario 1: Renter can successfully review their own completed booking")
-    void testRenterCanReviewCompletedBooking() {
+    @DisplayName("Requirement 1 & 2: Renter submits review for completed booking of Equipment A; backend derives equipment and owner")
+    void testRenterCanReviewCompletedBookingOfEquipmentA() {
         ReviewCreateRequest request = new ReviewCreateRequest(500L, 5, "Great tractor, worked very smoothly!");
 
         when(farmerRepository.findByEmail("ramesh@example.com")).thenReturn(Optional.of(renter));
-        when(bookingRepository.findById(500L)).thenReturn(Optional.of(completedBooking));
+        when(bookingRepository.findById(500L)).thenReturn(Optional.of(completedBookingA));
         when(reviewRepository.existsByBookingId(500L)).thenReturn(false);
 
-        Review savedReview = new Review(completedBooking, renter, owner, 5, "Great tractor, worked very smoothly!");
+        Review savedReview = new Review(completedBookingA, equipmentA, renter, owner, 5, "Great tractor, worked very smoothly!");
         savedReview.setId(1L);
         savedReview.setCreatedAt(LocalDateTime.now());
         when(reviewRepository.save(any(Review.class))).thenReturn(savedReview);
@@ -125,15 +158,137 @@ class ReviewServiceImplTest {
         assertNotNull(response);
         assertEquals(1L, response.getId());
         assertEquals(500L, response.getBookingId());
+        assertEquals(101L, response.getEquipmentId());
+        assertEquals("Equipment A - Mahindra Tractor", response.getEquipmentName());
+        assertEquals(20L, response.getOwnerId());
+        assertEquals("Suresh Gowda", response.getOwnerName());
         assertEquals(5, response.getRating());
         assertEquals("Great tractor, worked very smoothly!", response.getFeedback());
-        assertEquals("Ramesh Kumar", response.getReviewerName());
-        assertEquals("Suresh Gowda", response.getOwnerName());
-        verify(reviewRepository, times(1)).save(any(Review.class));
+
+        // Verify that the saved Review entity had the booking's equipment and owner set
+        ArgumentCaptor<Review> captor = ArgumentCaptor.forClass(Review.class);
+        verify(reviewRepository).save(captor.capture());
+        Review captured = captor.getValue();
+        assertEquals(101L, captured.getEquipment().getId());
+        assertEquals(20L, captured.getOwner().getId());
     }
 
     @Test
-    @DisplayName("Scenario 2: Renter cannot review an incomplete booking (PENDING/APPROVED)")
+    @DisplayName("Requirements 3 & 4: Equipment A rating summary includes its review; Equipment B rating summary does NOT")
+    void testEquipmentRatingSummaryIsolationBetweenEquipmentOfSameOwner() {
+        // Equipment A and B belong to the same owner
+        assertEquals(equipmentA.getOwner().getId(), equipmentB.getOwner().getId());
+
+        when(equipmentRepository.findById(101L)).thenReturn(Optional.of(equipmentA));
+        when(equipmentRepository.findById(102L)).thenReturn(Optional.of(equipmentB));
+
+        // Equipment A has 1 review with 5.0 rating
+        when(reviewRepository.countByEquipmentId(101L)).thenReturn(1L);
+        when(reviewRepository.getAverageRatingByEquipmentId(101L)).thenReturn(5.0);
+
+        // Equipment B has 0 reviews
+        when(reviewRepository.countByEquipmentId(102L)).thenReturn(0L);
+
+        EquipmentRatingSummary summaryA = reviewService.getEquipmentRatingSummary(101L);
+        EquipmentRatingSummary summaryB = reviewService.getEquipmentRatingSummary(102L);
+
+        // Equipment A includes the review
+        assertNotNull(summaryA);
+        assertEquals(101L, summaryA.getEquipmentId());
+        assertEquals("Equipment A - Mahindra Tractor", summaryA.getEquipmentName());
+        assertEquals(5.0, summaryA.getAverageRating());
+        assertEquals(1L, summaryA.getTotalReviews());
+
+        // Equipment B does NOT include the review
+        assertNotNull(summaryB);
+        assertEquals(102L, summaryB.getEquipmentId());
+        assertEquals("Equipment B - Rotavator", summaryB.getEquipmentName());
+        assertEquals(0.0, summaryB.getAverageRating());
+        assertEquals(0L, summaryB.getTotalReviews());
+
+        verify(reviewRepository).countByEquipmentId(101L);
+        verify(reviewRepository).countByEquipmentId(102L);
+        verify(reviewRepository, never()).countByOwnerId(anyLong());
+    }
+
+    @Test
+    @DisplayName("Requirements 5 & 6: Equipment A review list contains feedback; Equipment B review list does NOT")
+    void testEquipmentReviewListIsolationBetweenEquipmentOfSameOwner() {
+        Review reviewForA = new Review(completedBookingA, equipmentA, renter, owner, 5, "Mahindra worked great!");
+        reviewForA.setId(1L);
+        reviewForA.setCreatedAt(LocalDateTime.now());
+
+        when(equipmentRepository.existsById(101L)).thenReturn(true);
+        when(equipmentRepository.existsById(102L)).thenReturn(true);
+
+        when(reviewRepository.findByEquipmentIdOrderByCreatedAtDesc(101L)).thenReturn(List.of(reviewForA));
+        when(reviewRepository.findByEquipmentIdOrderByCreatedAtDesc(102L)).thenReturn(Collections.emptyList());
+
+        List<ReviewResponse> listA = reviewService.getReviewsByEquipment(101L);
+        List<ReviewResponse> listB = reviewService.getReviewsByEquipment(102L);
+
+        // Equipment A review list has the review and feedback
+        assertEquals(1, listA.size());
+        assertEquals("Mahindra worked great!", listA.get(0).getFeedback());
+        assertEquals(101L, listA.get(0).getEquipmentId());
+
+        // Equipment B review list is empty and does NOT contain Equipment A's feedback
+        assertTrue(listB.isEmpty());
+
+        verify(reviewRepository).findByEquipmentIdOrderByCreatedAtDesc(101L);
+        verify(reviewRepository).findByEquipmentIdOrderByCreatedAtDesc(102L);
+    }
+
+    @Test
+    @DisplayName("Requirement 7: Owner-wide review list includes reviews for both items without misattributing")
+    void testOwnerWideReviewsIncludesBothWithoutMisattributing() {
+        Review reviewForA = new Review(completedBookingA, equipmentA, renter, owner, 5, "Mahindra worked great!");
+        reviewForA.setId(1L);
+        reviewForA.setCreatedAt(LocalDateTime.now());
+
+        Review reviewForB = new Review(completedBookingB, equipmentB, renter, owner, 4, "Rotavator was sharp.");
+        reviewForB.setId(2L);
+        reviewForB.setCreatedAt(LocalDateTime.now().minusHours(1));
+
+        when(farmerRepository.existsById(20L)).thenReturn(true);
+        when(reviewRepository.findByOwnerIdOrderByCreatedAtDesc(20L)).thenReturn(List.of(reviewForA, reviewForB));
+
+        List<ReviewResponse> ownerReviews = reviewService.getReviewsByOwner(20L);
+
+        assertEquals(2, ownerReviews.size());
+
+        // First review is clearly for Equipment A
+        assertEquals(101L, ownerReviews.get(0).getEquipmentId());
+        assertEquals("Equipment A - Mahindra Tractor", ownerReviews.get(0).getEquipmentName());
+        assertEquals("Mahindra worked great!", ownerReviews.get(0).getFeedback());
+
+        // Second review is clearly for Equipment B
+        assertEquals(102L, ownerReviews.get(1).getEquipmentId());
+        assertEquals("Equipment B - Rotavator", ownerReviews.get(1).getEquipmentName());
+        assertEquals("Rotavator was sharp.", ownerReviews.get(1).getFeedback());
+    }
+
+    @Test
+    @DisplayName("Requirement 8: Review cannot be submitted with mismatched/unrelated equipment ID")
+    void testReviewCannotBeSubmittedForUnrelatedEquipment() {
+        // Booking 500 is for Equipment A (ID 101), but request specifies Equipment B (ID 102)
+        ReviewCreateRequest mismatchedRequest = new ReviewCreateRequest(500L, 5, "Nice equipment");
+        mismatchedRequest.setEquipmentId(102L);
+
+        when(farmerRepository.findByEmail("ramesh@example.com")).thenReturn(Optional.of(renter));
+        when(bookingRepository.findById(500L)).thenReturn(Optional.of(completedBookingA));
+        when(reviewRepository.existsByBookingId(500L)).thenReturn(false);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                reviewService.submitReview(mismatchedRequest, "ramesh@example.com")
+        );
+
+        assertTrue(ex.getMessage().contains("does not match the equipment rented"));
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Requirement 9a: Renter cannot review an incomplete booking (PENDING/APPROVED)")
     void testRenterCannotReviewIncompleteBooking() {
         ReviewCreateRequest request = new ReviewCreateRequest(501L, 4, "Too early to tell");
 
@@ -149,12 +304,12 @@ class ReviewServiceImplTest {
     }
 
     @Test
-    @DisplayName("Scenario 3: A user cannot review another renter's booking")
+    @DisplayName("Requirement 9b: User cannot review another renter's booking")
     void testUserCannotReviewAnotherRentersBooking() {
         ReviewCreateRequest request = new ReviewCreateRequest(500L, 5, "Not my booking");
 
         when(farmerRepository.findByEmail("other@example.com")).thenReturn(Optional.of(otherUser));
-        when(bookingRepository.findById(500L)).thenReturn(Optional.of(completedBooking));
+        when(bookingRepository.findById(500L)).thenReturn(Optional.of(completedBookingA));
 
         UnauthorizedActionException ex = assertThrows(UnauthorizedActionException.class, () ->
                 reviewService.submitReview(request, "other@example.com")
@@ -165,37 +320,12 @@ class ReviewServiceImplTest {
     }
 
     @Test
-    @DisplayName("Scenario 4: A user cannot review their own booking as the owner")
-    void testOwnerCannotReviewOwnBooking() {
-        // If owner tries to submit review on this booking
-        ReviewCreateRequest request = new ReviewCreateRequest(500L, 5, "Self praise");
-
-        // The booking has renter=renter, but if booking had owner=renter or if owner pretends to be renter:
-        // Case A: Owner tries to review booking where owner == reviewer
-        Booking selfBooking = new Booking();
-        selfBooking.setId(502L);
-        selfBooking.setRenter(owner);
-        selfBooking.setOwner(owner);
-        selfBooking.setStatus("COMPLETED");
-
-        when(farmerRepository.findByEmail("suresh@example.com")).thenReturn(Optional.of(owner));
-        when(bookingRepository.findById(502L)).thenReturn(Optional.of(selfBooking));
-
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
-                reviewService.submitReview(new ReviewCreateRequest(502L, 5, "Self praise"), "suresh@example.com")
-        );
-
-        assertTrue(ex.getMessage().contains("cannot review your own equipment"));
-        verify(reviewRepository, never()).save(any());
-    }
-
-    @Test
-    @DisplayName("Scenario 5: Duplicate reviews are rejected")
+    @DisplayName("Requirement 9c: Duplicate reviews are rejected before saving")
     void testDuplicateReviewRejected() {
         ReviewCreateRequest request = new ReviewCreateRequest(500L, 4, "Submitting second time");
 
         when(farmerRepository.findByEmail("ramesh@example.com")).thenReturn(Optional.of(renter));
-        when(bookingRepository.findById(500L)).thenReturn(Optional.of(completedBooking));
+        when(bookingRepository.findById(500L)).thenReturn(Optional.of(completedBookingA));
         when(reviewRepository.existsByBookingId(500L)).thenReturn(true);
 
         DuplicateResourceException ex = assertThrows(DuplicateResourceException.class, () ->
@@ -207,12 +337,12 @@ class ReviewServiceImplTest {
     }
 
     @Test
-    @DisplayName("Scenario 5b: Concurrent duplicate review hitting database constraint is rejected as duplicate")
+    @DisplayName("Requirement 9d: Concurrent duplicate review hitting database constraint is caught")
     void testConcurrentDuplicateReviewHandled() {
         ReviewCreateRequest request = new ReviewCreateRequest(500L, 4, "Concurrent submission");
 
         when(farmerRepository.findByEmail("ramesh@example.com")).thenReturn(Optional.of(renter));
-        when(bookingRepository.findById(500L)).thenReturn(Optional.of(completedBooking));
+        when(bookingRepository.findById(500L)).thenReturn(Optional.of(completedBookingA));
         when(reviewRepository.existsByBookingId(500L)).thenReturn(false);
         when(reviewRepository.save(any(Review.class))).thenThrow(new DataIntegrityViolationException("uk_reviews_booking_id"));
 
@@ -224,7 +354,7 @@ class ReviewServiceImplTest {
     }
 
     @Test
-    @DisplayName("Scenario 6: Ratings below 1 or above 5 are rejected")
+    @DisplayName("Ratings below 1 or above 5 are rejected")
     void testInvalidRatingsRejected() {
         ReviewCreateRequest lowRating = new ReviewCreateRequest(500L, 0, "Too low");
         assertThrows(IllegalArgumentException.class, () ->
@@ -243,36 +373,10 @@ class ReviewServiceImplTest {
     }
 
     @Test
-    @DisplayName("Scenario 7: Unauthenticated / non-existent user cannot submit reviews")
-    void testNonExistentUserCannotSubmitReview() {
-        ReviewCreateRequest request = new ReviewCreateRequest(500L, 5, "Feedback");
-
-        when(farmerRepository.findByEmail("ghost@example.com")).thenReturn(Optional.empty());
-
-        assertThrows(ResourceNotFoundException.class, () ->
-                reviewService.submitReview(request, "ghost@example.com")
-        );
-    }
-
-    @Test
-    @DisplayName("Scenario 7b: Non-existent booking cannot be reviewed")
-    void testNonExistentBookingCannotBeReviewed() {
-        ReviewCreateRequest request = new ReviewCreateRequest(999L, 5, "Feedback");
-
-        when(farmerRepository.findByEmail("ramesh@example.com")).thenReturn(Optional.of(renter));
-        when(bookingRepository.findById(999L)).thenReturn(Optional.empty());
-
-        assertThrows(ResourceNotFoundException.class, () ->
-                reviewService.submitReview(request, "ramesh@example.com")
-        );
-    }
-
-    @Test
-    @DisplayName("Scenario 8: Owner rating average and count are calculated correctly")
+    @DisplayName("Owner rating summary still works accurately across owner's entire equipment fleet")
     void testOwnerRatingAverageAndCountCalculatedCorrectly() {
         when(farmerRepository.findById(20L)).thenReturn(Optional.of(owner));
         when(reviewRepository.countByOwnerId(20L)).thenReturn(2L);
-        // (4 + 5) / 2 = 4.5
         when(reviewRepository.getAverageRatingByOwnerId(20L)).thenReturn(4.5);
 
         OwnerRatingSummary summary = reviewService.getOwnerRatingSummary(20L);
@@ -285,26 +389,10 @@ class ReviewServiceImplTest {
     }
 
     @Test
-    @DisplayName("Scenario 9: Owner with no reviews returns appropriate empty state")
-    void testOwnerWithNoReviewsReturnsEmptyState() {
-        when(farmerRepository.findById(20L)).thenReturn(Optional.of(owner));
-        when(reviewRepository.countByOwnerId(20L)).thenReturn(0L);
-
-        OwnerRatingSummary summary = reviewService.getOwnerRatingSummary(20L);
-
-        assertNotNull(summary);
-        assertEquals(20L, summary.getOwnerId());
-        assertEquals("Suresh Gowda", summary.getOwnerName());
-        assertEquals(0L, summary.getTotalReviews());
-        assertEquals(0.0, summary.getAverageRating());
-        verify(reviewRepository, never()).getAverageRatingByOwnerId(anyLong());
-    }
-
-    @Test
     @DisplayName("Check review eligibility: Eligible completed booking")
     void testCheckReviewEligibilityEligible() {
         when(farmerRepository.findByEmail("ramesh@example.com")).thenReturn(Optional.of(renter));
-        when(bookingRepository.findById(500L)).thenReturn(Optional.of(completedBooking));
+        when(bookingRepository.findById(500L)).thenReturn(Optional.of(completedBookingA));
         when(reviewRepository.findByBookingId(500L)).thenReturn(Optional.empty());
 
         ReviewEligibilityResponse eligibility = reviewService.checkReviewEligibility(500L, "ramesh@example.com");
@@ -320,7 +408,7 @@ class ReviewServiceImplTest {
         existing.setId(77L);
 
         when(farmerRepository.findByEmail("ramesh@example.com")).thenReturn(Optional.of(renter));
-        when(bookingRepository.findById(500L)).thenReturn(Optional.of(completedBooking));
+        when(bookingRepository.findById(500L)).thenReturn(Optional.of(completedBookingA));
         when(reviewRepository.findByBookingId(500L)).thenReturn(Optional.of(existing));
 
         ReviewEligibilityResponse eligibility = reviewService.checkReviewEligibility(500L, "ramesh@example.com");

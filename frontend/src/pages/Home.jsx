@@ -208,6 +208,8 @@ const Home = ({ onNavigateToOwnerDashboard, onNavigateToMyBookings }) => {
               {equipmentList.map((item) => (
                 <EquipmentCard
                   key={item.id}
+                  id={item.id}
+                  equipmentId={item.id}
                   image={item.imageUrl && item.imageUrl.trim() ? item.imageUrl : DEFAULT_FALLBACK_IMAGE}
                   name={item.name}
                   category={item.category}
@@ -217,6 +219,8 @@ const Home = ({ onNavigateToOwnerDashboard, onNavigateToMyBookings }) => {
                   distance={item.location}
                   ownerId={item.ownerId}
                   ownerName={item.ownerName}
+                  rating={item.rating ?? item.ownerRating}
+                  totalReviews={item.totalReviews ?? item.ownerTotalReviews}
                   ownerRating={item.ownerRating}
                   ownerTotalReviews={item.ownerTotalReviews}
                   onSelect={() => handleSelectEquipmentToRent(item, false)}

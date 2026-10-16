@@ -20,7 +20,11 @@ public class EquipmentResponse {
     private Long ownerId;
     private String ownerName;
 
-    // Owner Ratings & Reviews summary (Milestone 1)
+    // Equipment Ratings & Reviews summary
+    private Double rating;
+    private Long totalReviews;
+
+    // Retained for backwards compatibility
     private Double ownerRating;
     private Long ownerTotalReviews;
 
@@ -34,7 +38,7 @@ public class EquipmentResponse {
         this(id, name, category, description, price, priceUnit, bookingType, location, imageUrl, isAvailable, ownerId, ownerName, 0.0, 0L, createdAt, updatedAt);
     }
 
-    public EquipmentResponse(Long id, String name, String category, String description, BigDecimal price, String priceUnit, String bookingType, String location, String imageUrl, Boolean isAvailable, Long ownerId, String ownerName, Double ownerRating, Long ownerTotalReviews, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public EquipmentResponse(Long id, String name, String category, String description, BigDecimal price, String priceUnit, String bookingType, String location, String imageUrl, Boolean isAvailable, Long ownerId, String ownerName, Double rating, Long totalReviews, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.name = name;
         this.category = category;
@@ -47,8 +51,10 @@ public class EquipmentResponse {
         this.isAvailable = isAvailable;
         this.ownerId = ownerId;
         this.ownerName = ownerName;
-        this.ownerRating = ownerRating != null ? ownerRating : 0.0;
-        this.ownerTotalReviews = ownerTotalReviews != null ? ownerTotalReviews : 0L;
+        this.rating = rating != null ? rating : 0.0;
+        this.totalReviews = totalReviews != null ? totalReviews : 0L;
+        this.ownerRating = this.rating;
+        this.ownerTotalReviews = this.totalReviews;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -147,6 +153,24 @@ public class EquipmentResponse {
 
     public void setOwnerName(String ownerName) {
         this.ownerName = ownerName;
+    }
+
+    public Double getRating() {
+        return rating;
+    }
+
+    public void setRating(Double rating) {
+        this.rating = rating;
+        this.ownerRating = rating;
+    }
+
+    public Long getTotalReviews() {
+        return totalReviews;
+    }
+
+    public void setTotalReviews(Long totalReviews) {
+        this.totalReviews = totalReviews;
+        this.ownerTotalReviews = totalReviews;
     }
 
     public Double getOwnerRating() {

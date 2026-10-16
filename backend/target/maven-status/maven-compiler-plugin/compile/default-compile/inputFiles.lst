@@ -10,6 +10,7 @@ A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\a
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\BookingCreateRequest.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\BookingResponse.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\EquipmentCreateRequest.java
+A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\EquipmentRatingSummary.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\EquipmentResponse.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\EquipmentUpdateRequest.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\FarmerLoginRequest.java

@@ -230,16 +230,21 @@ class EquipmentServiceImplTest {
     }
 
     @Test
-    @DisplayName("Should populate owner rating and review count from reviewRepository")
-    void testEquipmentResponseIncludesOwnerRatingAndReviewCount() {
+    @DisplayName("Should populate equipment rating and review count from reviewRepository by equipment ID")
+    void testEquipmentResponseIncludesEquipmentRatingAndReviewCount() {
         when(equipmentRepository.findById(100L)).thenReturn(Optional.of(mockEquipment));
-        when(reviewRepository.countByOwnerId(1L)).thenReturn(5L);
-        when(reviewRepository.getAverageRatingByOwnerId(1L)).thenReturn(4.6666);
+        when(reviewRepository.countByEquipmentId(100L)).thenReturn(5L);
+        when(reviewRepository.getAverageRatingByEquipmentId(100L)).thenReturn(4.6666);
 
         EquipmentResponse response = equipmentService.getPublicEquipmentById(100L);
 
         assertNotNull(response);
+        assertEquals(4.7, response.getRating());
+        assertEquals(5L, response.getTotalReviews());
         assertEquals(4.7, response.getOwnerRating());
         assertEquals(5L, response.getOwnerTotalReviews());
+        verify(reviewRepository).countByEquipmentId(100L);
+        verify(reviewRepository).getAverageRatingByEquipmentId(100L);
+        verify(reviewRepository, never()).countByOwnerId(anyLong());
     }
 }

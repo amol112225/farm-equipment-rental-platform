@@ -38,6 +38,10 @@ public class Review {
     private Booking booking;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "equipment_id", nullable = false)
+    private Equipment equipment;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reviewer_id", nullable = false)
     private Farmer reviewer;
 
@@ -62,12 +66,17 @@ public class Review {
     public Review() {
     }
 
-    public Review(Booking booking, Farmer reviewer, Farmer owner, Integer rating, String feedback) {
+    public Review(Booking booking, Equipment equipment, Farmer reviewer, Farmer owner, Integer rating, String feedback) {
         this.booking = booking;
+        this.equipment = equipment;
         this.reviewer = reviewer;
         this.owner = owner;
         this.rating = rating;
         this.feedback = feedback;
+    }
+
+    public Review(Booking booking, Farmer reviewer, Farmer owner, Integer rating, String feedback) {
+        this(booking, booking != null ? booking.getEquipment() : null, reviewer, owner, rating, feedback);
     }
 
     public Long getId() {
@@ -84,6 +93,14 @@ public class Review {
 
     public void setBooking(Booking booking) {
         this.booking = booking;
+    }
+
+    public Equipment getEquipment() {
+        return equipment;
+    }
+
+    public void setEquipment(Equipment equipment) {
+        this.equipment = equipment;
     }
 
     public Farmer getReviewer() {
