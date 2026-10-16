@@ -1,0 +1,31 @@
+# Maven build target directory
+target/
+*.jar
+*.war
+*.ear
+*.class
+
+# Maven status & log files
+*.log
+mvnw
+mvnw.cmd
+.mvn/
+
+# Environment configuration & secrets
+.env
+.env.local
+.env.*
+!.env.example
+
+# IDE specific files
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.vscode/
+bin/
+
+# OS files
+.DS_Store
+Thumbs.db
