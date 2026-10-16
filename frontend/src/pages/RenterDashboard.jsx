@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Navbar from '../components/layout/Navbar';
 import { useAuth } from '../context/AuthContext';
 import { fetchMyBookings, cancelBooking } from '../services/bookingService';
+import { fetchMyReviewedBookingIds, checkReviewEligibility } from '../services/reviewService';
+import ReviewModal from '../features/review/components/ReviewModal';
 
 const DEFAULT_FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1592861956120-e524fc739696?auto=format&fit=crop&w=600&q=80';
@@ -22,6 +24,8 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
 
   // Bookings state
   const [bookings, setBookings] = useState([]);
+  const [reviewedBookingIds, setReviewedBookingIds] = useState([]);
+  const [reviewingBooking, setReviewingBooking] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -38,8 +42,20 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
     setIsLoading(true);
     setErrorMessage('');
     try {
-      const response = await fetchMyBookings(token);
-      setBookings(response.data || []);
+      const [bookingsRes, reviewedRes] = await Promise.allSettled([
+        fetchMyBookings(token),
+        fetchMyReviewedBookingIds(token),
+      ]);
+
+      if (bookingsRes.status === 'fulfilled') {
+        setBookings(bookingsRes.value.data || []);
+      } else {
+        throw bookingsRes.reason;
+      }
+
+      if (reviewedRes.status === 'fulfilled') {
+        setReviewedBookingIds(reviewedRes.value.data || []);
+      }
     } catch (err) {
       setErrorMessage(err.message || 'Failed to load your rental bookings.');
     } finally {
@@ -55,16 +71,16 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
 
   // Derived Booking Categories & Metrics
   const totalRequestsCount = bookings.length;
-  const pendingBookings = useMemo(() => bookings.filter((b) => b.status === 'PENDING'), [bookings]);
-  const rejectedBookings = useMemo(() => bookings.filter((b) => b.status === 'REJECTED'), [bookings]);
-  const completedBookings = useMemo(() => bookings.filter((b) => b.status === 'COMPLETED'), [bookings]);
-  const cancelledBookings = useMemo(() => bookings.filter((b) => b.status === 'CANCELLED'), [bookings]);
+  const pendingBookings = useMemo(() => bookings.filter((b) => b.status?.toUpperCase() === 'PENDING'), [bookings]);
+  const rejectedBookings = useMemo(() => bookings.filter((b) => b.status?.toUpperCase() === 'REJECTED'), [bookings]);
+  const completedBookings = useMemo(() => bookings.filter((b) => b.status?.toUpperCase() === 'COMPLETED'), [bookings]);
+  const cancelledBookings = useMemo(() => bookings.filter((b) => b.status?.toUpperCase() === 'CANCELLED'), [bookings]);
 
   // Upcoming Rentals: Status === 'APPROVED' AND startDateTime is in the future
   const upcomingRentals = useMemo(() => {
     const now = new Date();
     return bookings.filter((b) => {
-      if (b.status !== 'APPROVED') return false;
+      if (b.status?.toUpperCase() !== 'APPROVED') return false;
       if (!b.startDateTime) return false;
       try {
         return new Date(b.startDateTime) > now;
@@ -76,14 +92,15 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
 
   // Historical Bookings: COMPLETED, REJECTED, or CANCELLED
   const historyBookings = useMemo(() => {
-    return bookings.filter(
-      (b) => b.status === 'COMPLETED' || b.status === 'REJECTED' || b.status === 'CANCELLED'
-    );
+    return bookings.filter((b) => {
+      const s = b.status?.toUpperCase();
+      return s === 'COMPLETED' || s === 'REJECTED' || s === 'CANCELLED';
+    });
   }, [bookings]);
 
   const filteredHistory = useMemo(() => {
     if (historySubFilter === 'ALL') return historyBookings;
-    return historyBookings.filter((b) => b.status === historySubFilter);
+    return historyBookings.filter((b) => b.status?.toUpperCase() === historySubFilter);
   }, [historyBookings, historySubFilter]);
 
   // Completed Rental Spend: Sum of totalPrice for all COMPLETED bookings
@@ -129,6 +146,21 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
       setErrorMessage(err.message || 'Failed to cancel booking.');
     } finally {
       setCancellingId(null);
+    }
+  };
+
+  const handleRateOwner = async (booking) => {
+    setErrorMessage('');
+    try {
+      const res = await checkReviewEligibility(booking.id, token);
+      if (res?.data?.eligible) {
+        setReviewingBooking(booking);
+      } else {
+        setReviewedBookingIds((prev) => (prev.includes(booking.id) ? prev : [...prev, booking.id]));
+        setErrorMessage(res?.data?.reason || 'You have already reviewed this booking or are not eligible.');
+      }
+    } catch (e) {
+      setReviewingBooking(booking);
     }
   };
 
@@ -442,6 +474,27 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                                 )}
                               </div>
                             )}
+
+                            {/* Milestone 1: Rate Owner for COMPLETED bookings */}
+                            {booking.status?.toUpperCase() === 'COMPLETED' && (
+                              <div className="pt-1">
+                                {reviewedBookingIds.includes(booking.id) ? (
+                                  <span className="inline-flex items-center space-x-1 px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                    <span>⭐</span>
+                                    <span>Reviewed</span>
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRateOwner(booking)}
+                                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-amber-950 bg-amber-400 hover:bg-amber-500 rounded-lg shadow-xs transition-colors cursor-pointer"
+                                  >
+                                    <span>⭐</span>
+                                    <span>Rate Owner</span>
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -622,11 +675,34 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                             </div>
                           </div>
 
-                          <div className="text-left md:text-right shrink-0 border-t md:border-t-0 border-slate-100 pt-3 md:pt-0 w-full md:w-auto">
-                            <p className="text-xs text-slate-500 font-medium">Rental Total</p>
-                            <p className="text-xl font-black text-slate-800">
-                              ₹{booking.totalPrice ? booking.totalPrice.toLocaleString('en-IN') : '0'}
-                            </p>
+                          <div className="flex flex-row md:flex-col items-center md:items-end justify-between w-full md:w-auto border-t md:border-t-0 border-slate-100 pt-3 md:pt-0 shrink-0 space-y-2">
+                            <div className="text-left md:text-right">
+                              <p className="text-xs text-slate-500 font-medium">Rental Total</p>
+                              <p className="text-xl font-black text-slate-800">
+                                ₹{booking.totalPrice ? booking.totalPrice.toLocaleString('en-IN') : '0'}
+                              </p>
+                            </div>
+
+                            {/* Rate Owner action in History tab */}
+                            {booking.status?.toUpperCase() === 'COMPLETED' && (
+                              <div>
+                                {reviewedBookingIds.includes(booking.id) ? (
+                                  <span className="inline-flex items-center space-x-1 px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                    <span>⭐</span>
+                                    <span>Reviewed</span>
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRateOwner(booking)}
+                                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-amber-950 bg-amber-400 hover:bg-amber-500 rounded-lg shadow-xs transition-colors cursor-pointer"
+                                  >
+                                    <span>⭐</span>
+                                    <span>Rate Owner</span>
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -747,6 +823,22 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
           </>
         )}
       </main>
+
+      {/* Review Modal */}
+      {reviewingBooking && (
+        <ReviewModal
+          isOpen={Boolean(reviewingBooking)}
+          booking={reviewingBooking}
+          onClose={() => setReviewingBooking(null)}
+          onSuccess={() => {
+            setReviewedBookingIds((prev) =>
+              prev.includes(reviewingBooking.id) ? prev : [...prev, reviewingBooking.id]
+            );
+            setSuccessMessage(`Review for booking #${reviewingBooking.id} submitted successfully!`);
+            loadBookings();
+          }}
+        />
+      )}
 
       {/* Footer */}
       <footer className="bg-slate-900 text-slate-400 py-8 px-4 border-t border-slate-800 mt-12">

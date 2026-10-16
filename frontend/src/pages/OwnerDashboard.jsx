@@ -14,6 +14,10 @@ import {
   rejectOwnerBooking,
   completeOwnerBooking,
 } from '../services/bookingService';
+import {
+  fetchOwnerRatingSummary,
+  fetchOwnerReviews,
+} from '../services/reviewService';
 
 const DEFAULT_FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1592861956120-e524fc739696?auto=format&fit=crop&w=600&q=80';
@@ -34,13 +38,19 @@ const CATEGORIES = [
  * Allows authenticated equipment owners to manage listed machinery and handle incoming rental requests.
  */
 const OwnerDashboard = ({ onNavigateToHome, onNavigateToMyBookings }) => {
-  const { token, isAuthenticated } = useAuth();
+  const { token, isAuthenticated, currentFarmer } = useAuth();
 
-  // Active Tab: 'equipment' | 'requests' | 'approved' | 'history' | 'earnings'
+  // Active Tab: 'equipment' | 'requests' | 'approved' | 'history' | 'earnings' | 'reviews'
   const [activeTab, setActiveTab] = useState('equipment');
 
   // History sub-filter: 'ALL' | 'COMPLETED' | 'REJECTED' | 'CANCELLED'
   const [historySubFilter, setHistorySubFilter] = useState('ALL');
+
+  // Owner Ratings & Reviews state (Milestone 1)
+  const [ownerRatingSummary, setOwnerRatingSummary] = useState(null);
+  const [ownerReviews, setOwnerReviews] = useState([]);
+  const [isReviewsLoading, setIsReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState('');
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -115,33 +125,75 @@ const OwnerDashboard = ({ onNavigateToHome, onNavigateToMyBookings }) => {
   }, [token]);
 
   /**
+   * Fetch owner rating summary & received reviews
+   */
+  const loadReviews = useCallback(async () => {
+    if (!currentFarmer?.id) return;
+    setIsReviewsLoading(true);
+    setReviewsError('');
+    try {
+      const [summaryRes, reviewsRes] = await Promise.allSettled([
+        fetchOwnerRatingSummary(currentFarmer.id),
+        fetchOwnerReviews(currentFarmer.id),
+      ]);
+
+      if (summaryRes.status === 'fulfilled') {
+        setOwnerRatingSummary(summaryRes.value?.data || null);
+      }
+      if (reviewsRes.status === 'fulfilled') {
+        setOwnerReviews(reviewsRes.value?.data || []);
+      }
+    } catch (err) {
+      setReviewsError(err.message || 'Failed to load owner reviews.');
+    } finally {
+      setIsReviewsLoading(false);
+    }
+  }, [currentFarmer?.id]);
+
+  /**
    * Initial & Reactive Data Load
    */
   useEffect(() => {
     if (isAuthenticated && token) {
       loadEquipment();
       loadBookings();
+      if (currentFarmer?.id) {
+        loadReviews();
+      }
     }
-  }, [isAuthenticated, token, loadEquipment, loadBookings]);
+  }, [isAuthenticated, token, currentFarmer?.id, loadEquipment, loadBookings, loadReviews]);
+
+  useEffect(() => {
+    const handleReviewSubmitted = () => {
+      if (currentFarmer?.id) {
+        loadReviews();
+      }
+    };
+    window.addEventListener('agrorent:review-submitted', handleReviewSubmitted);
+    return () => {
+      window.removeEventListener('agrorent:review-submitted', handleReviewSubmitted);
+    };
+  }, [currentFarmer?.id, loadReviews]);
 
   // Derived Lists for Dashboard Sections
   const totalEquipmentCount = myEquipment.length;
-  const pendingRequests = useMemo(() => ownerBookings.filter((b) => b.status === 'PENDING'), [ownerBookings]);
-  const approvedRentals = useMemo(() => ownerBookings.filter((b) => b.status === 'APPROVED'), [ownerBookings]);
-  const completedBookings = useMemo(() => ownerBookings.filter((b) => b.status === 'COMPLETED'), [ownerBookings]);
-  const rejectedBookings = useMemo(() => ownerBookings.filter((b) => b.status === 'REJECTED'), [ownerBookings]);
-  const cancelledBookings = useMemo(() => ownerBookings.filter((b) => b.status === 'CANCELLED'), [ownerBookings]);
+  const pendingRequests = useMemo(() => ownerBookings.filter((b) => b.status?.toUpperCase() === 'PENDING'), [ownerBookings]);
+  const approvedRentals = useMemo(() => ownerBookings.filter((b) => b.status?.toUpperCase() === 'APPROVED'), [ownerBookings]);
+  const completedBookings = useMemo(() => ownerBookings.filter((b) => b.status?.toUpperCase() === 'COMPLETED'), [ownerBookings]);
+  const rejectedBookings = useMemo(() => ownerBookings.filter((b) => b.status?.toUpperCase() === 'REJECTED'), [ownerBookings]);
+  const cancelledBookings = useMemo(() => ownerBookings.filter((b) => b.status?.toUpperCase() === 'CANCELLED'), [ownerBookings]);
 
   // History Bookings: COMPLETED, REJECTED, or CANCELLED (excludes PENDING & APPROVED)
   const historyBookings = useMemo(() => {
-    return ownerBookings.filter(
-      (b) => b.status === 'COMPLETED' || b.status === 'REJECTED' || b.status === 'CANCELLED'
-    );
+    return ownerBookings.filter((b) => {
+      const s = b.status?.toUpperCase();
+      return s === 'COMPLETED' || s === 'REJECTED' || s === 'CANCELLED';
+    });
   }, [ownerBookings]);
 
   const filteredHistory = useMemo(() => {
     if (historySubFilter === 'ALL') return historyBookings;
-    return historyBookings.filter((b) => b.status === historySubFilter);
+    return historyBookings.filter((b) => b.status?.toUpperCase() === historySubFilter);
   }, [historyBookings, historySubFilter]);
 
   // Completed Rental Value: Sum of totalPrice for all COMPLETED bookings
@@ -546,6 +598,23 @@ const OwnerDashboard = ({ onNavigateToHome, onNavigateToMyBookings }) => {
                 <span>💰 Earnings Summary</span>
                 <span className="px-2 py-0.5 text-[11px] rounded-full bg-emerald-50 text-emerald-700 font-semibold">
                   ₹{completedRentalValue.toLocaleString('en-IN')}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('reviews')}
+                className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-colors whitespace-nowrap flex items-center space-x-2 ${
+                  activeTab === 'reviews'
+                    ? 'border-amber-500 text-amber-700'
+                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <span>⭐ Reviews & Ratings</span>
+                <span className="px-2 py-0.5 text-[11px] rounded-full bg-amber-50 text-amber-800 font-bold">
+                  {ownerRatingSummary && ownerRatingSummary.totalReviews > 0
+                    ? `⭐ ${ownerRatingSummary.averageRating.toFixed(1)} (${ownerRatingSummary.totalReviews})`
+                    : '⭐ 0'}
                 </span>
               </button>
             </div>
@@ -1246,6 +1315,118 @@ const OwnerDashboard = ({ onNavigateToHome, onNavigateToMyBookings }) => {
                               {b.duration} {b.priceUnit}{b.duration > 1 ? 's' : ''}
                             </span>
                           </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 6: REVIEWS & RATINGS (Milestone 1) */}
+            {activeTab === 'reviews' && (
+              <div className="space-y-6">
+                {/* Rating Overview Card */}
+                <div className="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-200/80 rounded-2xl p-6 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                  <div className="space-y-1">
+                    <span className="text-xs font-bold uppercase tracking-wider text-amber-800">
+                      Equipment Owner Reputation
+                    </span>
+                    <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-center space-x-2">
+                      <span className="text-amber-500">★</span>
+                      <span>
+                        {ownerRatingSummary && ownerRatingSummary.totalReviews > 0
+                          ? ownerRatingSummary.averageRating.toFixed(1)
+                          : '0.0'}
+                      </span>
+                      <span className="text-slate-400 text-lg font-normal">/ 5.0</span>
+                    </h2>
+                    <p className="text-xs text-slate-600 max-w-md">
+                      Calculated from authentic reviews submitted by farmers who completed equipment rentals with you.
+                    </p>
+                  </div>
+
+                  <div className="bg-white border border-slate-200 rounded-xl px-5 py-3.5 text-right shrink-0 shadow-xs">
+                    <span className="block text-2xl font-black text-slate-900">
+                      {ownerRatingSummary ? ownerRatingSummary.totalReviews : 0}
+                    </span>
+                    <span className="text-xs text-slate-500 font-medium">
+                      Verified Rental Reviews
+                    </span>
+                  </div>
+                </div>
+
+                {reviewsError && (
+                  <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-800 text-xs font-medium">
+                    {reviewsError}
+                  </div>
+                )}
+
+                {/* Reviews List */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
+                  <h3 className="text-base font-bold text-slate-900 border-b border-slate-100 pb-3">
+                    Feedback from Renters
+                  </h3>
+
+                  {isReviewsLoading ? (
+                    <div className="py-12 text-center text-slate-500 space-y-2">
+                      <div className="animate-spin inline-block w-8 h-8 border-3 border-amber-500 border-t-transparent rounded-full" />
+                      <p className="text-xs font-medium">Loading your feedback history...</p>
+                    </div>
+                  ) : ownerReviews.length === 0 ? (
+                    <div className="py-12 text-center bg-slate-50 border border-dashed border-slate-200 rounded-xl space-y-2">
+                      <span className="text-3xl">⭐</span>
+                      <h4 className="text-sm font-bold text-slate-800">No reviews received yet</h4>
+                      <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                        When renters complete machinery rentals and rate your equipment and service, their reviews will appear here.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 divide-y divide-slate-100">
+                      {ownerReviews.map((rev) => (
+                        <div key={rev.id} className="pt-4 first:pt-0 space-y-2">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
+                            <div className="flex items-center space-x-2">
+                              {/* 5-star visual representation */}
+                              <div className="text-amber-500 font-bold text-sm tracking-widest">
+                                {'★'.repeat(rev.rating)}
+                                <span className="text-slate-200">{'★'.repeat(5 - rev.rating)}</span>
+                              </div>
+                              <span className="font-bold text-slate-800 text-sm">
+                                {rev.reviewerName}
+                              </span>
+                              {rev.reviewerLocation && (
+                                <span className="text-slate-500 text-[11px]">
+                                  📍 {rev.reviewerLocation}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="text-slate-400 text-[11px] flex items-center space-x-2">
+                              {rev.equipmentName && (
+                                <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium">
+                                  🚜 {rev.equipmentName}
+                                </span>
+                              )}
+                              <span>
+                                {rev.createdAt
+                                  ? new Date(rev.createdAt).toLocaleDateString('en-IN', {
+                                      day: '2-digit',
+                                      month: 'short',
+                                      year: 'numeric',
+                                    })
+                                  : ''}
+                              </span>
+                            </div>
+                          </div>
+
+                          {rev.feedback ? (
+                            <p className="text-xs text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100 italic">
+                              "{rev.feedback}"
+                            </p>
+                          ) : (
+                            <p className="text-[11px] text-slate-400 italic">No written comments provided.</p>
+                          )}
                         </div>
                       ))}
                     </div>

@@ -9,6 +9,7 @@ import com.agrorent.backend.model.Equipment;
 import com.agrorent.backend.model.Farmer;
 import com.agrorent.backend.repository.EquipmentRepository;
 import com.agrorent.backend.repository.FarmerRepository;
+import com.agrorent.backend.repository.ReviewRepository;
 import com.agrorent.backend.service.impl.EquipmentServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -34,6 +35,9 @@ class EquipmentServiceImplTest {
 
     @Mock
     private FarmerRepository farmerRepository;
+
+    @Mock
+    private ReviewRepository reviewRepository;
 
     @InjectMocks
     private EquipmentServiceImpl equipmentService;
@@ -223,5 +227,19 @@ class EquipmentServiceImplTest {
 
         assertThrows(UnauthorizedActionException.class, () -> equipmentService.deleteEquipment(100L, "jane@farm.com"));
         verify(equipmentRepository, never()).delete(any(Equipment.class));
+    }
+
+    @Test
+    @DisplayName("Should populate owner rating and review count from reviewRepository")
+    void testEquipmentResponseIncludesOwnerRatingAndReviewCount() {
+        when(equipmentRepository.findById(100L)).thenReturn(Optional.of(mockEquipment));
+        when(reviewRepository.countByOwnerId(1L)).thenReturn(5L);
+        when(reviewRepository.getAverageRatingByOwnerId(1L)).thenReturn(4.6666);
+
+        EquipmentResponse response = equipmentService.getPublicEquipmentById(100L);
+
+        assertNotNull(response);
+        assertEquals(4.7, response.getOwnerRating());
+        assertEquals(5L, response.getOwnerTotalReviews());
     }
 }

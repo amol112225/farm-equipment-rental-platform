@@ -9,6 +9,7 @@ import com.agrorent.backend.model.Equipment;
 import com.agrorent.backend.model.Farmer;
 import com.agrorent.backend.repository.EquipmentRepository;
 import com.agrorent.backend.repository.FarmerRepository;
+import com.agrorent.backend.repository.ReviewRepository;
 import com.agrorent.backend.service.EquipmentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -27,11 +28,19 @@ public class EquipmentServiceImpl implements EquipmentService {
 
     private final EquipmentRepository equipmentRepository;
     private final FarmerRepository farmerRepository;
+    private ReviewRepository reviewRepository;
 
     @Autowired
-    public EquipmentServiceImpl(EquipmentRepository equipmentRepository, FarmerRepository farmerRepository) {
+    public EquipmentServiceImpl(EquipmentRepository equipmentRepository,
+                                FarmerRepository farmerRepository,
+                                @Autowired(required = false) ReviewRepository reviewRepository) {
         this.equipmentRepository = equipmentRepository;
         this.farmerRepository = farmerRepository;
+        this.reviewRepository = reviewRepository;
+    }
+
+    public EquipmentServiceImpl(EquipmentRepository equipmentRepository, FarmerRepository farmerRepository) {
+        this(equipmentRepository, farmerRepository, null);
     }
 
     @Override
@@ -140,6 +149,19 @@ public class EquipmentServiceImpl implements EquipmentService {
     }
 
     private EquipmentResponse mapToResponse(Equipment equipment) {
+        Double avgRating = 0.0;
+        long totalReviews = 0L;
+        if (reviewRepository != null && equipment.getOwner() != null && equipment.getOwner().getId() != null) {
+            Long ownerId = equipment.getOwner().getId();
+            totalReviews = reviewRepository.countByOwnerId(ownerId);
+            if (totalReviews > 0) {
+                Double rawAvg = reviewRepository.getAverageRatingByOwnerId(ownerId);
+                if (rawAvg != null) {
+                    avgRating = Math.round(rawAvg * 10.0) / 10.0;
+                }
+            }
+        }
+
         return new EquipmentResponse(
                 equipment.getId(),
                 equipment.getName(),
@@ -153,6 +175,8 @@ public class EquipmentServiceImpl implements EquipmentService {
                 equipment.getIsAvailable(),
                 equipment.getOwner().getId(),
                 equipment.getOwner().getFullName(),
+                avgRating,
+                totalReviews,
                 equipment.getCreatedAt(),
                 equipment.getUpdatedAt()
         );

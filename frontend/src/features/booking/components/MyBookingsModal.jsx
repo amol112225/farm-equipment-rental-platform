@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { fetchMyBookings, cancelBooking } from '../../../services/bookingService';
+import { fetchMyReviewedBookingIds, checkReviewEligibility } from '../../../services/reviewService';
+import ReviewModal from '../../review/components/ReviewModal';
 
 const DEFAULT_FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1592861956120-e524fc739696?auto=format&fit=crop&w=600&q=80';
@@ -8,7 +10,7 @@ const DEFAULT_FALLBACK_IMAGE =
 /**
  * MyBookingsModal Component
  * Interactive modal displaying the authenticated farmer's rental booking history,
- * status badges, and cancellation action for eligible bookings.
+ * status badges, cancellation action, and owner rating review modal for completed rentals.
  */
 const MyBookingsModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
@@ -16,6 +18,8 @@ const MyBookingsModal = ({ isOpen, onClose }) => {
   const { token, isAuthenticated } = useAuth();
 
   const [bookings, setBookings] = useState([]);
+  const [reviewedBookingIds, setReviewedBookingIds] = useState([]);
+  const [reviewingBooking, setReviewingBooking] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [generalError, setGeneralError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -26,8 +30,20 @@ const MyBookingsModal = ({ isOpen, onClose }) => {
     setIsLoading(true);
     setGeneralError('');
     try {
-      const response = await fetchMyBookings(token);
-      setBookings(response.data || []);
+      const [bookingsRes, reviewedRes] = await Promise.allSettled([
+        fetchMyBookings(token),
+        fetchMyReviewedBookingIds(token),
+      ]);
+
+      if (bookingsRes.status === 'fulfilled') {
+        setBookings(bookingsRes.value.data || []);
+      } else {
+        throw bookingsRes.reason;
+      }
+
+      if (reviewedRes.status === 'fulfilled') {
+        setReviewedBookingIds(reviewedRes.value.data || []);
+      }
     } catch (err) {
       setGeneralError(err.message || 'Failed to load your rental bookings.');
     } finally {
@@ -65,6 +81,21 @@ const MyBookingsModal = ({ isOpen, onClose }) => {
       setGeneralError(err.message || 'Failed to cancel booking.');
     } finally {
       setCancellingId(null);
+    }
+  };
+
+  const handleRateOwner = async (booking) => {
+    setGeneralError('');
+    try {
+      const res = await checkReviewEligibility(booking.id, token);
+      if (res?.data?.eligible) {
+        setReviewingBooking(booking);
+      } else {
+        setReviewedBookingIds((prev) => (prev.includes(booking.id) ? prev : [...prev, booking.id]));
+        setGeneralError(res?.data?.reason || 'You have already reviewed this booking or are not eligible.');
+      }
+    } catch (e) {
+      setReviewingBooking(booking);
     }
   };
 
@@ -260,6 +291,27 @@ const MyBookingsModal = ({ isOpen, onClose }) => {
                           {cancellingId === booking.id ? 'Cancelling...' : 'Cancel Booking'}
                         </button>
                       )}
+
+                      {/* Milestone 1: Owner Ratings & Feedback for COMPLETED bookings */}
+                      {booking.status?.toUpperCase() === 'COMPLETED' && (
+                        <div className="pt-1">
+                          {reviewedBookingIds.includes(booking.id) ? (
+                            <span className="inline-flex items-center space-x-1 px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              <span>⭐</span>
+                              <span>Reviewed</span>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleRateOwner(booking)}
+                              className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-amber-950 bg-amber-400 hover:bg-amber-500 rounded-lg shadow-xs transition-colors cursor-pointer"
+                            >
+                              <span>⭐</span>
+                              <span>Rate Owner</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -268,6 +320,22 @@ const MyBookingsModal = ({ isOpen, onClose }) => {
           )}
         </div>
       </div>
+
+      {/* Review Modal */}
+      {reviewingBooking && (
+        <ReviewModal
+          isOpen={Boolean(reviewingBooking)}
+          booking={reviewingBooking}
+          onClose={() => setReviewingBooking(null)}
+          onSuccess={() => {
+            setReviewedBookingIds((prev) =>
+              prev.includes(reviewingBooking.id) ? prev : [...prev, reviewingBooking.id]
+            );
+            setSuccessMessage(`Review for booking #${reviewingBooking.id} submitted successfully!`);
+            loadBookings();
+          }}
+        />
+      )}
     </div>
   );
 };

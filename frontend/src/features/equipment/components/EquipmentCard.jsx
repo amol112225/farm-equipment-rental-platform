@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { fetchOwnerRatingSummary } from '../../../services/reviewService';
 
 /**
  * EquipmentCard Component
- * Reusable card to display farm equipment information with action buttons.
+ * Reusable card to display farm equipment information with action buttons and owner rating.
  * 
  * Props:
  * @param {string} image - URL or path of the equipment image
@@ -11,6 +12,10 @@ import React from 'react';
  * @param {string} priceUnit - Rental duration unit ('hour' | 'day')
  * @param {string} bookingType - Booking mode ('instant' | 'request' | 'both')
  * @param {string} distance - Distance from user (e.g. '4.2 km' or '4.2 km away')
+ * @param {string} category - Equipment category
+ * @param {number} ownerId - Owner ID for rating lookup
+ * @param {string} ownerName - Owner full name
+ * @param {Object} ownerRatingSummary - Optional pre-loaded owner rating summary
  * @param {function} onSelect - Callback when clicking card or Book button
  */
 const EquipmentCard = ({
@@ -21,8 +26,59 @@ const EquipmentCard = ({
   bookingType,
   distance,
   category,
+  ownerId,
+  ownerName,
+  ownerRating,
+  ownerTotalReviews,
+  ownerRatingSummary,
   onSelect,
+  onViewReviews,
 }) => {
+  const [ratingSummary, setRatingSummary] = useState(
+    ownerRatingSummary ||
+      (ownerRating !== undefined && ownerRating !== null
+        ? {
+            averageRating: Number(ownerRating) || 0.0,
+            totalReviews: Number(ownerTotalReviews) || 0,
+          }
+        : null)
+  );
+
+  useEffect(() => {
+    if (ownerRatingSummary) {
+      setRatingSummary(ownerRatingSummary);
+      return;
+    }
+
+    if (
+      ownerRating !== undefined &&
+      ownerRating !== null &&
+      ownerTotalReviews !== undefined &&
+      ownerTotalReviews !== null
+    ) {
+      setRatingSummary({
+        averageRating: Number(ownerRating) || 0.0,
+        totalReviews: Number(ownerTotalReviews) || 0,
+      });
+      return;
+    }
+
+    if (ownerId) {
+      let isMounted = true;
+      fetchOwnerRatingSummary(ownerId)
+        .then((res) => {
+          if (isMounted && res?.data) {
+            setRatingSummary(res.data);
+          }
+        })
+        .catch(() => {
+          // Fallback silently if rating fails
+        });
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [ownerId, ownerRating, ownerTotalReviews, ownerRatingSummary]);
   // Format price with Indian Rupee symbol and commas if numeric
   const formattedPrice =
     typeof price === 'number'
@@ -126,6 +182,43 @@ const EquipmentCard = ({
               {formattedPrice} <span className="text-xs font-normal text-slate-500">/ {normalizedUnit}</span>
             </div>
           )}
+
+          {/* Owner & Rating Row */}
+          <div className="flex items-center justify-between text-xs text-slate-600 pt-1">
+            <span className="truncate max-w-[150px]">
+              👤 {ownerName || 'Verified Owner'}
+            </span>
+            {ratingSummary && ratingSummary.totalReviews > 0 ? (
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onViewReviews) onViewReviews();
+                  else if (onSelect) onSelect(true);
+                }}
+                className="inline-flex items-center gap-1 font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-md text-[11px] shrink-0 cursor-pointer transition-colors"
+                title="Click to view owner reviews"
+              >
+                <span className="text-amber-500">★</span>
+                <span>{ratingSummary.averageRating.toFixed(1)}</span>
+                <span className="text-slate-500 font-normal">
+                  ({ratingSummary.totalReviews} {ratingSummary.totalReviews === 1 ? 'review' : 'reviews'})
+                </span>
+              </span>
+            ) : (
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onViewReviews) onViewReviews();
+                  else if (onSelect) onSelect(true);
+                }}
+                className="inline-flex items-center gap-1 text-[11px] text-slate-500 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md shrink-0 cursor-pointer transition-colors"
+                title="Click to view owner reviews"
+              >
+                <span className="text-slate-400">★</span>
+                <span>No ratings yet</span>
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="space-y-3 pt-1 border-t border-slate-100">

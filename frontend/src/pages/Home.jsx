@@ -34,6 +34,7 @@ const Home = ({ onNavigateToOwnerDashboard, onNavigateToMyBookings }) => {
 
   // Modals and Notices State
   const [selectedEquipment, setSelectedEquipment] = useState(null);
+  const [initialShowReviews, setInitialShowReviews] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isMyModalOpen, setIsMyModalOpen] = useState(false);
   const [isMyBookingsOpen, setIsMyBookingsOpen] = useState(false);
@@ -70,6 +71,17 @@ const Home = ({ onNavigateToOwnerDashboard, onNavigateToMyBookings }) => {
     return () => clearTimeout(handler);
   }, [loadEquipment]);
 
+  // Automatically refresh equipment cards when a new review is submitted
+  useEffect(() => {
+    const handleReviewSubmitted = () => {
+      loadEquipment();
+    };
+    window.addEventListener('agrorent:review-submitted', handleReviewSubmitted);
+    return () => {
+      window.removeEventListener('agrorent:review-submitted', handleReviewSubmitted);
+    };
+  }, [loadEquipment]);
+
   const handleResetFilters = () => {
     setSearchTerm('');
     setLocationSearch('');
@@ -87,6 +99,7 @@ const Home = ({ onNavigateToOwnerDashboard, onNavigateToMyBookings }) => {
 
   const handleBookingConfirm = (createdBooking) => {
     setSelectedEquipment(null);
+    setInitialShowReviews(false);
     const status = createdBooking?.status?.toUpperCase();
     const bookingId = createdBooking?.id ? `#${createdBooking.id}` : '';
 
@@ -111,12 +124,8 @@ const Home = ({ onNavigateToOwnerDashboard, onNavigateToMyBookings }) => {
     loadEquipment();
   };
 
-  const handleSelectEquipmentToRent = (item) => {
-    if (!isAuthenticated) {
-      setUnimplementedNotice('Please log in to your farmer account to rent equipment.');
-      setTimeout(() => setUnimplementedNotice(null), 4000);
-      return;
-    }
+  const handleSelectEquipmentToRent = (item, openReviews = false) => {
+    setInitialShowReviews(openReviews);
     setSelectedEquipment(item);
   };
 
@@ -206,7 +215,12 @@ const Home = ({ onNavigateToOwnerDashboard, onNavigateToMyBookings }) => {
                   priceUnit={item.priceUnit}
                   bookingType={item.bookingType}
                   distance={item.location}
-                  onSelect={() => handleSelectEquipmentToRent(item)}
+                  ownerId={item.ownerId}
+                  ownerName={item.ownerName}
+                  ownerRating={item.ownerRating}
+                  ownerTotalReviews={item.ownerTotalReviews}
+                  onSelect={() => handleSelectEquipmentToRent(item, false)}
+                  onViewReviews={() => handleSelectEquipmentToRent(item, true)}
                 />
               ))}
             </div>
@@ -233,7 +247,11 @@ const Home = ({ onNavigateToOwnerDashboard, onNavigateToMyBookings }) => {
       {selectedEquipment && (
         <BookingModal
           equipment={selectedEquipment}
-          onClose={() => setSelectedEquipment(null)}
+          initialShowReviews={initialShowReviews}
+          onClose={() => {
+            setSelectedEquipment(null);
+            setInitialShowReviews(false);
+          }}
           onConfirm={handleBookingConfirm}
         />
       )}

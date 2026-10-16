@@ -5,6 +5,7 @@ A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\a
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\controller\EquipmentController.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\controller\FarmerController.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\controller\HealthCheckController.java
+A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\controller\ReviewController.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\ApiResponse.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\BookingCreateRequest.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\BookingResponse.java
@@ -15,6 +16,10 @@ A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\a
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\FarmerRegistrationRequest.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\FarmerResponse.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\LoginResponse.java
+A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\OwnerRatingSummary.java
+A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\ReviewCreateRequest.java
+A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\ReviewEligibilityResponse.java
+A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\ReviewResponse.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\exception\DuplicateResourceException.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\exception\GlobalExceptionHandler.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\exception\ResourceNotFoundException.java
@@ -22,9 +27,11 @@ A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\a
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\model\Booking.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\model\Equipment.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\model\Farmer.java
+A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\model\Review.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\repository\BookingRepository.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\repository\EquipmentRepository.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\repository\FarmerRepository.java
+A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\repository\ReviewRepository.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\security\CustomAuthenticationEntryPoint.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\security\JwtAuthenticationFilter.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\security\JwtTokenProvider.java
@@ -34,3 +41,5 @@ A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\a
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\service\impl\BookingServiceImpl.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\service\impl\EquipmentServiceImpl.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\service\impl\FarmerServiceImpl.java
+A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\service\impl\ReviewServiceImpl.java
+A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\service\ReviewService.java

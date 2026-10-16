@@ -20,6 +20,10 @@ public class EquipmentResponse {
     private Long ownerId;
     private String ownerName;
 
+    // Owner Ratings & Reviews summary (Milestone 1)
+    private Double ownerRating;
+    private Long ownerTotalReviews;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -27,6 +31,10 @@ public class EquipmentResponse {
     }
 
     public EquipmentResponse(Long id, String name, String category, String description, BigDecimal price, String priceUnit, String bookingType, String location, String imageUrl, Boolean isAvailable, Long ownerId, String ownerName, LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this(id, name, category, description, price, priceUnit, bookingType, location, imageUrl, isAvailable, ownerId, ownerName, 0.0, 0L, createdAt, updatedAt);
+    }
+
+    public EquipmentResponse(Long id, String name, String category, String description, BigDecimal price, String priceUnit, String bookingType, String location, String imageUrl, Boolean isAvailable, Long ownerId, String ownerName, Double ownerRating, Long ownerTotalReviews, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.name = name;
         this.category = category;
@@ -39,6 +47,8 @@ public class EquipmentResponse {
         this.isAvailable = isAvailable;
         this.ownerId = ownerId;
         this.ownerName = ownerName;
+        this.ownerRating = ownerRating != null ? ownerRating : 0.0;
+        this.ownerTotalReviews = ownerTotalReviews != null ? ownerTotalReviews : 0L;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -137,6 +147,22 @@ public class EquipmentResponse {
 
     public void setOwnerName(String ownerName) {
         this.ownerName = ownerName;
+    }
+
+    public Double getOwnerRating() {
+        return ownerRating;
+    }
+
+    public void setOwnerRating(Double ownerRating) {
+        this.ownerRating = ownerRating;
+    }
+
+    public Long getOwnerTotalReviews() {
+        return ownerTotalReviews;
+    }
+
+    public void setOwnerTotalReviews(Long ownerTotalReviews) {
+        this.ownerTotalReviews = ownerTotalReviews;
     }
 
     public LocalDateTime getCreatedAt() {

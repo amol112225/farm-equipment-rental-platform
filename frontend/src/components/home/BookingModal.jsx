@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { createBooking } from '../../services/bookingService';
+import { fetchOwnerRatingSummary, fetchOwnerReviews } from '../../services/reviewService';
 
 /**
  * BookingModal Component
  * Connected to Spring Boot REST API for creating real equipment rental bookings.
+ * Displays owner ratings and reviews.
  */
-const BookingModal = ({ equipment, onClose, onConfirm }) => {
+const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfirm }) => {
   if (!equipment) return null;
 
   const { token, isAuthenticated } = useAuth();
@@ -25,10 +27,39 @@ const BookingModal = ({ equipment, onClose, onConfirm }) => {
   const [generalError, setGeneralError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Milestone 1: Owner rating and reviews state
+  const [ownerRating, setOwnerRating] = useState(
+    equipment?.ownerRating !== undefined && equipment?.ownerRating !== null
+      ? {
+          averageRating: Number(equipment.ownerRating) || 0.0,
+          totalReviews: Number(equipment.ownerTotalReviews) || 0,
+        }
+      : null
+  );
+  const [ownerReviews, setOwnerReviews] = useState([]);
+  const [showReviews, setShowReviews] = useState(Boolean(initialShowReviews));
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
+  const [reviewsError, setReviewsError] = useState('');
+
   const priceUnit = equipment.priceUnit?.toLowerCase() === 'day' ? 'day' : 'hour';
   const totalPrice = (equipment.price || 0) * Math.max(1, hoursOrDays);
 
   const isBothType = equipment.bookingType?.toLowerCase() === 'both';
+
+  const loadOwnerReviews = async (ownerId) => {
+    const targetOwnerId = ownerId || equipment?.ownerId;
+    if (!targetOwnerId) return;
+    setIsLoadingReviews(true);
+    setReviewsError('');
+    try {
+      const res = await fetchOwnerReviews(targetOwnerId);
+      setOwnerReviews(res?.data || []);
+    } catch (err) {
+      setReviewsError(err.message || 'Failed to load owner reviews. Please try again.');
+    } finally {
+      setIsLoadingReviews(false);
+    }
+  };
 
   useEffect(() => {
     setHoursOrDays(1);
@@ -36,7 +67,60 @@ const BookingModal = ({ equipment, onClose, onConfirm }) => {
     setNotes('');
     setBookingMode('instant');
     setGeneralError('');
-  }, [equipment]);
+    setShowReviews(Boolean(initialShowReviews));
+    setOwnerReviews([]);
+    setReviewsError('');
+
+    if (
+      equipment?.ownerRating !== undefined &&
+      equipment?.ownerRating !== null &&
+      equipment?.ownerTotalReviews !== undefined &&
+      equipment?.ownerTotalReviews !== null
+    ) {
+      setOwnerRating({
+        averageRating: Number(equipment.ownerRating) || 0.0,
+        totalReviews: Number(equipment.ownerTotalReviews) || 0,
+      });
+    } else if (equipment?.ownerId) {
+      fetchOwnerRatingSummary(equipment.ownerId)
+        .then((res) => setOwnerRating(res?.data || null))
+        .catch(() => setOwnerRating({ averageRating: 0.0, totalReviews: 0 }));
+    } else {
+      setOwnerRating(null);
+    }
+
+    if (initialShowReviews && equipment?.ownerId) {
+      loadOwnerReviews(equipment.ownerId);
+    }
+  }, [equipment, initialShowReviews]);
+
+  useEffect(() => {
+    const handleReviewSubmitted = (e) => {
+      if (equipment?.ownerId && (!e.detail?.ownerId || e.detail.ownerId === equipment.ownerId)) {
+        fetchOwnerRatingSummary(equipment.ownerId, false)
+          .then((res) => setOwnerRating(res?.data || null))
+          .catch(() => {});
+        if (showReviews) {
+          loadOwnerReviews(equipment.ownerId);
+        }
+      }
+    };
+    window.addEventListener('agrorent:review-submitted', handleReviewSubmitted);
+    return () => {
+      window.removeEventListener('agrorent:review-submitted', handleReviewSubmitted);
+    };
+  }, [equipment?.ownerId, showReviews]);
+
+  const handleToggleReviews = async () => {
+    if (!showReviews) {
+      setShowReviews(true);
+      if (ownerReviews.length === 0 || reviewsError) {
+        await loadOwnerReviews(equipment?.ownerId);
+      }
+    } else {
+      setShowReviews(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -140,6 +224,95 @@ const BookingModal = ({ equipment, onClose, onConfirm }) => {
               <p className="text-xs font-semibold text-slate-500">Location</p>
               <p className="text-sm font-bold text-slate-700">📍 {equipment.distance || equipment.location}</p>
             </div>
+          </div>
+
+          {/* Owner Info & Rating Bar */}
+          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-500 font-medium">Equipment Owner</p>
+                <p className="font-bold text-slate-800 text-sm">{equipment.ownerName || 'Verified Equipment Owner'}</p>
+              </div>
+
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={handleToggleReviews}
+                  className="inline-flex items-center gap-1.5 font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                  title="Click to view owner reviews"
+                >
+                  <span>⭐</span>
+                  {ownerRating && ownerRating.totalReviews > 0 ? (
+                    <>
+                      <span>{ownerRating.averageRating.toFixed(1)}</span>
+                      <span className="text-amber-800 font-normal">
+                        ({ownerRating.totalReviews} review{ownerRating.totalReviews > 1 ? 's' : ''})
+                      </span>
+                    </>
+                  ) : (
+                    <span>No ratings yet</span>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Expandable Owner Reviews Drawer */}
+            {showReviews && (
+              <div className="pt-2 border-t border-slate-200 mt-2 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-700">Recent Renter Reviews</span>
+                  <button
+                    type="button"
+                    onClick={handleToggleReviews}
+                    className="text-emerald-700 hover:underline font-semibold text-[11px]"
+                  >
+                    Hide Reviews
+                  </button>
+                </div>
+
+                {isLoadingReviews ? (
+                  <div className="py-3 text-center text-slate-500 flex items-center justify-center space-x-2">
+                    <div className="animate-spin inline-block w-4 h-4 border-2 border-emerald-600 border-t-transparent rounded-full" />
+                    <span>Loading reviews...</span>
+                  </div>
+                ) : reviewsError ? (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-center space-y-2">
+                    <p className="text-xs text-red-700 font-medium">{reviewsError}</p>
+                    <button
+                      type="button"
+                      onClick={() => loadOwnerReviews(equipment?.ownerId)}
+                      className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[11px] font-semibold transition-colors cursor-pointer"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : ownerReviews.length === 0 ? (
+                  <div className="py-3 text-slate-500 text-center italic text-xs">
+                    No reviews yet.
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                    {ownerReviews.map((rev) => (
+                      <div key={rev.id} className="bg-white p-2.5 rounded-lg border border-slate-100 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-1">
+                            <span className="text-amber-500 font-bold">{'★'.repeat(rev.rating)}</span>
+                            <span className="text-slate-300">{'★'.repeat(5 - rev.rating)}</span>
+                            <span className="text-slate-700 font-semibold ml-1.5">{rev.reviewerName}</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400">
+                            {rev.createdAt ? new Date(rev.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
+                          </span>
+                        </div>
+                        {rev.feedback && (
+                          <p className="text-slate-600 italic">"{rev.feedback}"</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Conditional Mode Selector for equipment with bookingType='both' */}
