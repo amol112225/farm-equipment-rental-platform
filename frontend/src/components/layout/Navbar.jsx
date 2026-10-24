@@ -86,18 +86,19 @@ const Navbar = ({ onOpenMyBookings, onOpenOwnerDashboard, onNavigateToHome, curr
                 type="button"
                 onClick={handleOpenBookings}
                 className={`px-3.5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${currentPage === 'my-bookings'
-                    ? 'text-emerald-700 bg-emerald-50 font-bold border border-emerald-200'
-                    : 'text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/60'
+                  ? 'text-emerald-700 bg-emerald-50 font-bold border border-emerald-200'
+                  : 'text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/60'
                   }`}
               >
                 Rental Dashboard
               </button>
+
               <button
                 type="button"
                 onClick={handleOpenOwnerDashboard}
                 className={`px-3.5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${currentPage === 'owner-dashboard'
-                    ? 'text-emerald-700 bg-emerald-50 font-bold border border-emerald-200'
-                    : 'text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/60'
+                  ? 'text-emerald-700 bg-emerald-50 font-bold border border-emerald-200'
+                  : 'text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/60'
                   }`}
               >
                 Owner Dashboard
@@ -173,8 +174,8 @@ const Navbar = ({ onOpenMyBookings, onOpenOwnerDashboard, onNavigateToHome, curr
                 type="button"
                 onClick={handleOpenBookings}
                 className={`w-full text-left px-3 py-2 text-base font-semibold rounded-lg ${currentPage === 'my-bookings'
-                    ? 'text-emerald-700 bg-emerald-50 font-bold'
-                    : 'text-slate-800 hover:bg-emerald-50'
+                  ? 'text-emerald-700 bg-emerald-50 font-bold'
+                  : 'text-slate-800 hover:bg-emerald-50'
                   }`}
               >
                 My Bookings
@@ -183,8 +184,8 @@ const Navbar = ({ onOpenMyBookings, onOpenOwnerDashboard, onNavigateToHome, curr
                 type="button"
                 onClick={handleOpenOwnerDashboard}
                 className={`w-full text-left px-3 py-2 text-base font-semibold rounded-lg ${currentPage === 'owner-dashboard'
-                    ? 'text-emerald-700 bg-emerald-50 font-bold'
-                    : 'text-slate-800 hover:bg-emerald-50'
+                  ? 'text-emerald-700 bg-emerald-50 font-bold'
+                  : 'text-slate-800 hover:bg-emerald-50'
                   }`}
               >
                 Owner Dashboard

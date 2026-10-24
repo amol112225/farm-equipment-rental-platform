@@ -67,8 +67,7 @@ class EquipmentPhotoServiceTest {
                 reviewRepository,
                 equipmentImageRepository,
                 imageStorageService,
-                fileValidationService
-        );
+                fileValidationService);
 
         ownerFarmer = new Farmer();
         ownerFarmer.setId(10L);
@@ -104,8 +103,10 @@ class EquipmentPhotoServiceTest {
             return eq;
         });
 
-        MockMultipartFile photo1 = new MockMultipartFile("photos", "tractor1.jpg", "image/jpeg", FileValidationServiceTest.createValidJpegBytes());
-        MockMultipartFile photo2 = new MockMultipartFile("photos", "tractor2.png", "image/png", FileValidationServiceTest.createValidPngBytes());
+        MockMultipartFile photo1 = new MockMultipartFile("photos", "tractor1.jpg", "image/jpeg",
+                FileValidationServiceTest.createValidJpegBytes());
+        MockMultipartFile photo2 = new MockMultipartFile("photos", "tractor2.png", "image/png",
+                FileValidationServiceTest.createValidPngBytes());
 
         when(imageStorageService.storeImage(photo1)).thenReturn("/api/uploads/equipment/stored1.jpg");
         when(imageStorageService.storeImage(photo2)).thenReturn("/api/uploads/equipment/stored2.png");
@@ -122,8 +123,7 @@ class EquipmentPhotoServiceTest {
         EquipmentResponse response = equipmentService.createEquipmentWithPhotos(
                 request,
                 List.of(photo1, photo2),
-                "ramesh@agrorent.com"
-        );
+                "ramesh@agrorent.com");
 
         assertNotNull(response);
         assertEquals(101L, response.getId());
@@ -144,7 +144,8 @@ class EquipmentPhotoServiceTest {
         when(equipmentRepository.findById(101L)).thenReturn(Optional.of(testEquipment));
         when(equipmentRepository.save(any(Equipment.class))).thenReturn(testEquipment);
 
-        MockMultipartFile newPhoto = new MockMultipartFile("photos", "attachment.jpg", "image/jpeg", FileValidationServiceTest.createValidJpegBytes());
+        MockMultipartFile newPhoto = new MockMultipartFile("photos", "attachment.jpg", "image/jpeg",
+                FileValidationServiceTest.createValidJpegBytes());
         when(imageStorageService.storeImage(newPhoto)).thenReturn("/api/uploads/equipment/attachment.jpg");
 
         List<MultipartFile> files = List.of(newPhoto);
@@ -161,10 +162,11 @@ class EquipmentPhotoServiceTest {
     void testUploadPhotosForbiddenForNonOwner() {
         when(equipmentRepository.findById(101L)).thenReturn(Optional.of(testEquipment));
 
-        MockMultipartFile newPhoto = new MockMultipartFile("photos", "hack.jpg", "image/jpeg", FileValidationServiceTest.createValidJpegBytes());
+        MockMultipartFile newPhoto = new MockMultipartFile("photos", "hack.jpg", "image/jpeg",
+                FileValidationServiceTest.createValidJpegBytes());
 
-        assertThrows(UnauthorizedActionException.class, () ->
-                equipmentService.uploadEquipmentPhotos(101L, List.of(newPhoto), "suresh@agrorent.com"));
+        assertThrows(UnauthorizedActionException.class,
+                () -> equipmentService.uploadEquipmentPhotos(101L, List.of(newPhoto), "suresh@agrorent.com"));
 
         verify(imageStorageService, never()).storeImage(any());
         verify(equipmentRepository, never()).save(any());
@@ -212,8 +214,8 @@ class EquipmentPhotoServiceTest {
 
         when(equipmentRepository.findById(101L)).thenReturn(Optional.of(testEquipment));
 
-        assertThrows(UnauthorizedActionException.class, () ->
-                equipmentService.deleteEquipmentPhoto(101L, 501L, "suresh@agrorent.com"));
+        assertThrows(UnauthorizedActionException.class,
+                () -> equipmentService.deleteEquipmentPhoto(101L, 501L, "suresh@agrorent.com"));
 
         verify(imageStorageService, never()).deleteImage(anyString());
         verify(equipmentImageRepository, never()).delete(any());
@@ -224,8 +226,8 @@ class EquipmentPhotoServiceTest {
     void testDeletePhotoBelongingToDifferentEquipment() {
         when(equipmentRepository.findById(101L)).thenReturn(Optional.of(testEquipment));
 
-        ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class, () ->
-                equipmentService.deleteEquipmentPhoto(101L, 777L, "ramesh@agrorent.com"));
+        ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                () -> equipmentService.deleteEquipmentPhoto(101L, 777L, "ramesh@agrorent.com"));
 
         assertTrue(ex.getMessage().contains("Photo with ID 777 not found on equipment listing 101"));
         verify(imageStorageService, never()).deleteImage(anyString());
@@ -267,8 +269,8 @@ class EquipmentPhotoServiceTest {
 
         when(equipmentRepository.findById(101L)).thenReturn(Optional.of(testEquipment));
 
-        assertThrows(UnauthorizedActionException.class, () ->
-                equipmentService.setPrimaryPhoto(101L, 501L, "suresh@agrorent.com"));
+        assertThrows(UnauthorizedActionException.class,
+                () -> equipmentService.setPrimaryPhoto(101L, 501L, "suresh@agrorent.com"));
 
         verify(equipmentRepository, never()).save(any());
     }
@@ -324,7 +326,8 @@ class EquipmentPhotoServiceTest {
     @DisplayName("Should handle storage failure gracefully by propagating error and avoiding invalid state")
     void testStorageFailureHandling() {
         when(farmerRepository.findByEmail("ramesh@agrorent.com")).thenReturn(Optional.of(ownerFarmer));
-        MockMultipartFile photo = new MockMultipartFile("photos", "upload.jpg", "image/jpeg", FileValidationServiceTest.createValidJpegBytes());
+        MockMultipartFile photo = new MockMultipartFile("photos", "upload.jpg", "image/jpeg",
+                FileValidationServiceTest.createValidJpegBytes());
 
         when(imageStorageService.storeImage(photo)).thenThrow(new RuntimeException("Cloudinary connection failed"));
 
@@ -337,8 +340,8 @@ class EquipmentPhotoServiceTest {
         request.setBookingType("both");
         request.setLocation("Gujarat");
 
-        RuntimeException ex = assertThrows(RuntimeException.class, () ->
-                equipmentService.createEquipmentWithPhotos(request, List.of(photo), "ramesh@agrorent.com"));
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> equipmentService.createEquipmentWithPhotos(request, List.of(photo), "ramesh@agrorent.com"));
 
         assertTrue(ex.getMessage().contains("Cloudinary connection failed"));
         // Ensure no equipment was saved with corrupt/partial images
@@ -355,8 +358,10 @@ class EquipmentPhotoServiceTest {
             return eq;
         });
 
-        MockMultipartFile photo1 = new MockMultipartFile("photos", "tractor1.jpg", "image/jpeg", FileValidationServiceTest.createValidJpegBytes());
-        MockMultipartFile photo2 = new MockMultipartFile("photos", "tractor2.png", "image/png", FileValidationServiceTest.createValidPngBytes());
+        MockMultipartFile photo1 = new MockMultipartFile("photos", "tractor1.jpg", "image/jpeg",
+                FileValidationServiceTest.createValidJpegBytes());
+        MockMultipartFile photo2 = new MockMultipartFile("photos", "tractor2.png", "image/png",
+                FileValidationServiceTest.createValidPngBytes());
 
         when(imageStorageService.storeImage(photo1)).thenReturn("/api/uploads/equipment/stored1.jpg");
         when(imageStorageService.storeImage(photo2)).thenReturn("/api/uploads/equipment/stored2.png");
@@ -375,8 +380,7 @@ class EquipmentPhotoServiceTest {
                 request,
                 List.of(photo1, photo2),
                 1,
-                "ramesh@agrorent.com"
-        );
+                "ramesh@agrorent.com");
 
         assertNotNull(response);
         assertEquals("/api/uploads/equipment/stored2.png", response.getImageUrl());
@@ -441,8 +445,8 @@ class EquipmentPhotoServiceTest {
         updateReq.setLocation("Punjab");
         updateReq.setPrimaryImageId(999L); // ID 999 does not belong to this equipment
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
-                equipmentService.updateEquipment(101L, updateReq, "ramesh@agrorent.com"));
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> equipmentService.updateEquipment(101L, updateReq, "ramesh@agrorent.com"));
 
         assertTrue(ex.getMessage().contains("999"));
         assertTrue(ex.getMessage().contains("does not belong to this equipment listing"));
