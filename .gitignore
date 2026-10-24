@@ -18,6 +18,10 @@ backend/target/
 *.war
 *.ear
 
+# Uploaded media storage (local dev)
+uploads/
+backend/uploads/
+
 # Environment configuration & local secrets
 .env
 .env.local

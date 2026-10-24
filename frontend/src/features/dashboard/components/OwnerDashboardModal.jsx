@@ -6,6 +6,7 @@ import {
   rejectOwnerBooking,
   completeOwnerBooking,
 } from '../../../services/bookingService';
+import { resolveImageUrl } from '../../../services/equipmentService';
 
 const DEFAULT_FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1592861956120-e524fc739696?auto=format&fit=crop&w=600&q=80';
@@ -296,7 +297,7 @@ const OwnerDashboardModal = ({ isOpen, onClose }) => {
                     {/* Equipment & Renter Info */}
                     <div className="flex items-start space-x-4 w-full md:w-auto">
                       <img
-                        src={booking.imageUrl && booking.imageUrl.trim() ? booking.imageUrl : DEFAULT_FALLBACK_IMAGE}
+                        src={resolveImageUrl(booking.imageUrl)}
                         alt={booking.equipmentName}
                         className="w-20 h-20 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100"
                       />

@@ -3,6 +3,7 @@ import Navbar from '../components/layout/Navbar';
 import { useAuth } from '../context/AuthContext';
 import { fetchMyBookings, cancelBooking } from '../services/bookingService';
 import { fetchMyReviewedBookingIds, checkReviewEligibility } from '../services/reviewService';
+import { resolveImageUrl } from '../services/equipmentService';
 import ReviewModal from '../features/review/components/ReviewModal';
 
 const DEFAULT_FALLBACK_IMAGE =
@@ -404,7 +405,7 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                         >
                           <div className="flex items-start space-x-4 w-full md:w-auto">
                             <img
-                              src={booking.imageUrl && booking.imageUrl.trim() ? booking.imageUrl : DEFAULT_FALLBACK_IMAGE}
+                              src={resolveImageUrl(booking.imageUrl)}
                               alt={booking.equipmentName}
                               className="w-20 h-20 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100"
                             />
@@ -529,7 +530,7 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                       >
                         <div className="flex items-start space-x-4 w-full md:w-auto">
                           <img
-                            src={booking.imageUrl && booking.imageUrl.trim() ? booking.imageUrl : DEFAULT_FALLBACK_IMAGE}
+                            src={resolveImageUrl(booking.imageUrl)}
                             alt={booking.equipmentName}
                             className="w-20 h-20 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100"
                           />
@@ -651,7 +652,7 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                         >
                           <div className="flex items-start space-x-4 w-full md:w-auto">
                             <img
-                              src={booking.imageUrl && booking.imageUrl.trim() ? booking.imageUrl : DEFAULT_FALLBACK_IMAGE}
+                              src={resolveImageUrl(booking.imageUrl)}
                               alt={booking.equipmentName}
                               className="w-20 h-20 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100"
                             />
@@ -794,7 +795,7 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                         >
                           <div className="flex items-center space-x-3">
                             <img
-                              src={b.imageUrl && b.imageUrl.trim() ? b.imageUrl : DEFAULT_FALLBACK_IMAGE}
+                              src={resolveImageUrl(b.imageUrl)}
                               alt={b.equipmentName}
                               className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0 bg-slate-100"
                             />

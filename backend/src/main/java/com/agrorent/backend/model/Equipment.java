@@ -1,5 +1,6 @@
 package com.agrorent.backend.model;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -8,12 +9,16 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Equipment JPA Entity representing agricultural machinery listings.
@@ -50,6 +55,10 @@ public class Equipment {
 
     @Column(name = "image_url", length = 500)
     private String imageUrl;
+
+    @OneToMany(mappedBy = "equipment", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("displayOrder ASC, id ASC")
+    private List<EquipmentImage> images = new ArrayList<>();
 
     @Column(name = "is_available", nullable = false)
     private Boolean isAvailable = true;
@@ -184,5 +193,28 @@ public class Equipment {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public List<EquipmentImage> getImages() {
+        return images;
+    }
+
+    public void setImages(List<EquipmentImage> images) {
+        this.images = images != null ? images : new ArrayList<>();
+    }
+
+    public void addImage(EquipmentImage image) {
+        if (images == null) {
+            images = new ArrayList<>();
+        }
+        images.add(image);
+        image.setEquipment(this);
+    }
+
+    public void removeImage(EquipmentImage image) {
+        if (images != null) {
+            images.remove(image);
+            image.setEquipment(null);
+        }
     }
 }

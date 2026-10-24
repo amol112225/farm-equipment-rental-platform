@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { fetchMyBookings, cancelBooking } from '../../../services/bookingService';
 import { fetchMyReviewedBookingIds, checkReviewEligibility } from '../../../services/reviewService';
+import { resolveImageUrl } from '../../../services/equipmentService';
 import ReviewModal from '../../review/components/ReviewModal';
 
 const DEFAULT_FALLBACK_IMAGE =
@@ -231,7 +232,7 @@ const MyBookingsModal = ({ isOpen, onClose }) => {
                     {/* Equipment Info & Image */}
                     <div className="flex items-start space-x-4 w-full md:w-auto">
                       <img
-                        src={booking.imageUrl && booking.imageUrl.trim() ? booking.imageUrl : DEFAULT_FALLBACK_IMAGE}
+                        src={resolveImageUrl(booking.imageUrl)}
                         alt={booking.equipmentName}
                         className="w-20 h-20 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100"
                       />

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { fetchEquipmentRatingSummary } from '../../../services/reviewService';
+import { resolveImageUrl } from '../../../services/equipmentService';
 
 /**
  * EquipmentCard Component
@@ -9,6 +10,7 @@ import { fetchEquipmentRatingSummary } from '../../../services/reviewService';
  * @param {number} id - Equipment ID
  * @param {number} equipmentId - Alternative prop for equipment ID
  * @param {string} image - URL or path of the equipment image
+ * @param {Array} images - Array of uploaded equipment photo objects
  * @param {string} name - Name of the equipment
  * @param {number|string} price - Rental price amount
  * @param {string} priceUnit - Rental duration unit ('hour' | 'day')
@@ -27,6 +29,7 @@ const EquipmentCard = ({
   id,
   equipmentId,
   image,
+  images = [],
   name,
   price,
   priceUnit = 'hour',
@@ -165,6 +168,24 @@ const EquipmentCard = ({
       ? distance
       : `${distance} away`
     : null;
+  // Resolve primary image to display:
+  // 1. Explicitly designated primary photo in images array (isPrimary === true)
+  // 2. Fallback to image prop (equipment.imageUrl)
+  // 3. Fallback to first photo in images array (deterministic)
+  // 4. Null (clean fallback SVG placeholder)
+  const primaryFromList = Array.isArray(images) && images.length > 0
+    ? images.find((img) => img && (img.isPrimary === true || img.primary === true))
+    : null;
+
+  const firstFromList = Array.isArray(images) && images.length > 0 ? images[0] : null;
+
+  const rawDisplayUrl =
+    (primaryFromList && (primaryFromList.imageUrl || (typeof primaryFromList === 'string' ? primaryFromList : null))) ||
+    image ||
+    (firstFromList && (firstFromList.imageUrl || (typeof firstFromList === 'string' ? firstFromList : null))) ||
+    null;
+
+  const resolvedCardImage = resolveImageUrl(rawDisplayUrl);
 
   return (
     <div 
@@ -173,35 +194,51 @@ const EquipmentCard = ({
     >
       {/* 1. Equipment Image */}
       <div className="relative w-full h-48 sm:h-52 bg-slate-100 overflow-hidden">
-        {image ? (
+        {resolvedCardImage ? (
           <img
-            src={image}
+            src={resolvedCardImage}
             alt={name || 'Farm equipment'}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+              if (e.currentTarget.nextSibling) {
+                e.currentTarget.nextSibling.style.display = 'flex';
+              }
+            }}
           />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-slate-400">
-            <svg
-              className="w-12 h-12"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1.5"
-                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-          </div>
-        )}
+        ) : null}
+        <div
+          className="w-full h-full flex items-center justify-center text-slate-400"
+          style={{ display: resolvedCardImage ? 'none' : 'flex' }}
+        >
+          <svg
+            className="w-12 h-12"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.5"
+              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
+        </div>
         
         {/* Category Pill Tag on Top Left */}
         {category && (
           <div className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded-full">
             {category}
+          </div>
+        )}
+
+        {/* Multi-Photo Count Badge on Top Right */}
+        {images && images.length > 1 && (
+          <div className="absolute top-3 right-3 bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
+            <span>📷</span>
+            <span>{images.length}</span>
           </div>
         )}
       </div>

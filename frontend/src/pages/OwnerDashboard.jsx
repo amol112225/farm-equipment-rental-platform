@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Navbar from '../components/layout/Navbar';
 import AddEquipmentModal from '../features/equipment/components/AddEquipmentModal';
 import MyBookingsModal from '../features/booking/components/MyBookingsModal';
@@ -7,6 +7,10 @@ import {
   fetchMyEquipment,
   updateEquipment,
   deleteEquipment,
+  uploadEquipmentPhotos,
+  deleteEquipmentPhoto,
+  setPrimaryEquipmentPhoto,
+  resolveImageUrl,
 } from '../services/equipmentService';
 import {
   fetchOwnerBookings,
@@ -74,6 +78,11 @@ const OwnerDashboard = ({ onNavigateToHome, onNavigateToMyBookings }) => {
     imageUrl: '',
     isAvailable: true,
   });
+  const [editingItemPhotos, setEditingItemPhotos] = useState([]);
+  const [selectedPrimaryPhotoId, setSelectedPrimaryPhotoId] = useState(null);
+  const [photoActionLoading, setPhotoActionLoading] = useState(false);
+  const [photoError, setPhotoError] = useState('');
+  const editPhotoInputRef = useRef(null);
   const [fieldErrors, setFieldErrors] = useState({});
   const [isUpdating, setIsUpdating] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
@@ -281,6 +290,16 @@ const OwnerDashboard = ({ onNavigateToHome, onNavigateToMyBookings }) => {
   // Handlers for Equipment Operations
   const startEdit = (item) => {
     setEditingItem(item);
+    const photos =
+      item.images && item.images.length > 0
+        ? item.images
+        : item.imageUrl
+        ? [{ id: null, imageUrl: item.imageUrl, isPrimary: true }]
+        : [];
+    setEditingItemPhotos(photos);
+    const activePrimary = photos.find((p) => p.isPrimary) || photos[0] || null;
+    setSelectedPrimaryPhotoId(activePrimary?.id || null);
+    setPhotoError('');
     setEditFormData({
       name: item.name || '',
       category: item.category || 'Tractors',
@@ -289,7 +308,7 @@ const OwnerDashboard = ({ onNavigateToHome, onNavigateToMyBookings }) => {
       priceUnit: item.priceUnit || 'hour',
       bookingType: item.bookingType || 'instant',
       location: item.location || '',
-      imageUrl: item.imageUrl || '',
+      imageUrl: item.imageUrl || activePrimary?.imageUrl || '',
       isAvailable: item.isAvailable !== false,
     });
     setFieldErrors({});
@@ -298,7 +317,150 @@ const OwnerDashboard = ({ onNavigateToHome, onNavigateToMyBookings }) => {
 
   const cancelEdit = () => {
     setEditingItem(null);
+    setEditingItemPhotos([]);
+    setSelectedPrimaryPhotoId(null);
     setFieldErrors({});
+    setPhotoError('');
+  };
+
+  const handleOwnerUploadPhotos = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length || !editingItem) return;
+    setPhotoError('');
+    if (editingItemPhotos.length + files.length > 5) {
+      setPhotoError('Maximum 5 photos allowed per equipment listing.');
+      return;
+    }
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const allowedExts = ['.jpg', '.jpeg', '.png', '.webp'];
+    for (const f of files) {
+      const lowerName = f.name ? f.name.toLowerCase() : '';
+      const hasValidExt = allowedExts.some((ext) => lowerName.endsWith(ext));
+
+      if (!allowed.includes(f.type.toLowerCase()) || !hasValidExt) {
+        setPhotoError(`"${f.name}" has an unsupported format. Only JPEG, PNG, and WebP are allowed.`);
+        return;
+      }
+      if (f.size > 5 * 1024 * 1024) {
+        setPhotoError(`"${f.name}" exceeds the maximum 5MB size limit.`);
+        return;
+      }
+      if (f.size === 0) {
+        setPhotoError(`"${f.name}" is empty. Please select a valid photo.`);
+        return;
+      }
+
+      try {
+        await new Promise((resolve, reject) => {
+          const testUrl = URL.createObjectURL(f);
+          const img = new Image();
+          img.onload = () => {
+            URL.revokeObjectURL(testUrl);
+            resolve(true);
+          };
+          img.onerror = () => {
+            URL.revokeObjectURL(testUrl);
+            reject(new Error(`"${f.name}" contains invalid or unreadable image content.`));
+          };
+          img.src = testUrl;
+        });
+      } catch (err) {
+        setPhotoError(err.message);
+        return;
+      }
+    }
+    setPhotoActionLoading(true);
+    try {
+      const res = await uploadEquipmentPhotos(editingItem.id, files, token);
+      if (res?.data) {
+        setEditingItem(res.data);
+        const updatedPhotos = res.data.images || [];
+        setEditingItemPhotos(updatedPhotos);
+        const activePrimary = updatedPhotos.find((p) => p.isPrimary) || updatedPhotos[0] || null;
+        setSelectedPrimaryPhotoId(activePrimary?.id || null);
+        if (res.data.imageUrl || activePrimary?.imageUrl) {
+          setEditFormData((prev) => ({
+            ...prev,
+            imageUrl: res.data.imageUrl || activePrimary.imageUrl,
+          }));
+        }
+        setSuccessMessage('Photos uploaded successfully.');
+        await loadEquipment();
+      }
+    } catch (err) {
+      setPhotoError(err.message || 'Failed to upload photos.');
+    } finally {
+      setPhotoActionLoading(false);
+      if (editPhotoInputRef.current) editPhotoInputRef.current.value = '';
+    }
+  };
+
+  const handleOwnerDeletePhoto = async (photoId) => {
+    if (!editingItem) return;
+    if (!photoId) {
+      setEditFormData((prev) => ({ ...prev, imageUrl: '' }));
+      setEditingItemPhotos([]);
+      setSelectedPrimaryPhotoId(null);
+      return;
+    }
+    setPhotoActionLoading(true);
+    setPhotoError('');
+    try {
+      const res = await deleteEquipmentPhoto(editingItem.id, photoId, token);
+      if (res?.data) {
+        setEditingItem(res.data);
+        const updatedPhotos = res.data.images || [];
+        setEditingItemPhotos(updatedPhotos);
+        const newPrimary = updatedPhotos.find((p) => p.isPrimary) || updatedPhotos[0] || null;
+        setSelectedPrimaryPhotoId(newPrimary?.id || null);
+        setEditFormData((prev) => ({
+          ...prev,
+          imageUrl: res.data.imageUrl || newPrimary?.imageUrl || '',
+        }));
+        setSuccessMessage('Photo removed successfully.');
+        await loadEquipment();
+      }
+    } catch (err) {
+      setPhotoError(err.message || 'Failed to remove photo.');
+    } finally {
+      setPhotoActionLoading(false);
+    }
+  };
+
+  const handleOwnerSetPrimary = async (photoId) => {
+    if (!editingItem || !photoId) return;
+
+    // Immediately update UI selection
+    setSelectedPrimaryPhotoId(photoId);
+    setEditingItemPhotos((prev) =>
+      prev.map((photo) => ({
+        ...photo,
+        isPrimary: photo.id === photoId,
+      }))
+    );
+    const chosen = editingItemPhotos.find((p) => p.id === photoId);
+    if (chosen) {
+      setEditFormData((prev) => ({ ...prev, imageUrl: chosen.imageUrl }));
+    }
+
+    setPhotoActionLoading(true);
+    setPhotoError('');
+    try {
+      const res = await setPrimaryEquipmentPhoto(editingItem.id, photoId, token);
+      if (res?.data) {
+        setEditingItem(res.data);
+        setEditingItemPhotos(res.data.images || []);
+        if (res.data.imageUrl) {
+          setEditFormData((prev) => ({ ...prev, imageUrl: res.data.imageUrl }));
+        }
+        setSuccessMessage('Primary photo updated.');
+        await loadEquipment();
+      }
+    } catch (err) {
+      setPhotoError(err.message || 'Failed to update primary photo.');
+    } finally {
+      setPhotoActionLoading(false);
+    }
   };
 
   const handleEditChange = (e) => {
@@ -328,6 +490,7 @@ const OwnerDashboard = ({ onNavigateToHome, onNavigateToMyBookings }) => {
         bookingType: editFormData.bookingType,
         location: editFormData.location.trim(),
         imageUrl: editFormData.imageUrl ? editFormData.imageUrl.trim() : '',
+        primaryImageId: selectedPrimaryPhotoId || (editingItemPhotos.find((p) => p.isPrimary)?.id) || null,
         isAvailable: editFormData.isAvailable,
       };
 
@@ -732,18 +895,112 @@ const OwnerDashboard = ({ onNavigateToHome, onNavigateToMyBookings }) => {
                       </div>
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                        Image URL (Optional)
-                      </label>
-                      <input
-                        type="url"
-                        name="imageUrl"
-                        value={editFormData.imageUrl}
-                        onChange={handleEditChange}
-                        placeholder="https://images.unsplash.com/..."
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
+                    {/* Photos Management Section in Edit Mode */}
+                    <div className="border border-slate-200 rounded-xl p-4 bg-white space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+                            Equipment Photos ({editingItemPhotos.length}/5)
+                          </label>
+                          <p className="text-[11px] text-slate-500">
+                            Upload photos or designate primary cover photo (JPEG, PNG, WebP up to 5MB)
+                          </p>
+                        </div>
+                        {editingItemPhotos.length < 5 && (
+                          <div>
+                            <input
+                              ref={editPhotoInputRef}
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              multiple
+                              onChange={handleOwnerUploadPhotos}
+                              disabled={photoActionLoading}
+                              className="hidden"
+                              id="owner-dash-photo-upload"
+                            />
+                            <label
+                              htmlFor="owner-dash-photo-upload"
+                              className={`px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer flex items-center space-x-1 ${
+                                photoActionLoading ? 'opacity-50 pointer-events-none' : ''
+                              }`}
+                            >
+                              <span>{photoActionLoading ? 'Uploading...' : '+ Upload Photos'}</span>
+                            </label>
+                          </div>
+                        )}
+                      </div>
+
+                      {photoError && (
+                        <div className="p-2 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs font-medium">
+                          ⚠️ {photoError}
+                        </div>
+                      )}
+
+                      {editingItemPhotos.length > 0 ? (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
+                          {editingItemPhotos.map((photo, idx) => {
+                            const photoUrl = resolveImageUrl(photo.imageUrl);
+                            const isPhotoPrimary = photo.id
+                              ? (selectedPrimaryPhotoId === photo.id || Boolean(photo.isPrimary))
+                              : Boolean(photo.isPrimary);
+                            return (
+                              <div
+                                key={photo.id || idx}
+                                className={`relative rounded-lg overflow-hidden border-2 bg-slate-100 h-28 group transition-all ${
+                                  isPhotoPrimary
+                                    ? 'border-emerald-600 ring-2 ring-emerald-500/40 shadow-xs'
+                                    : 'border-slate-200'
+                                }`}
+                              >
+                                <img
+                                  src={photoUrl}
+                                  alt={`Equipment photo ${idx + 1}`}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
+
+                                {/* Primary Badge or Action */}
+                                {isPhotoPrimary ? (
+                                  <span className="absolute top-1.5 left-1.5 bg-emerald-700 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-xs flex items-center gap-1">
+                                    <span>★</span>
+                                    <span>Primary Photo</span>
+                                  </span>
+                                ) : (
+                                  photo.id && (
+                                    <button
+                                      type="button"
+                                      disabled={photoActionLoading}
+                                      onClick={() => handleOwnerSetPrimary(photo.id)}
+                                      className="absolute top-1.5 left-1.5 bg-slate-900/80 hover:bg-emerald-700 text-white text-[10px] font-semibold px-2 py-0.5 rounded transition-colors disabled:opacity-50 shadow-xs"
+                                      title="Click to set this as the main cover photo"
+                                    >
+                                      Set as Primary
+                                    </button>
+                                  )
+                                )}
+
+                                {/* Delete Button */}
+                                <button
+                                  type="button"
+                                  disabled={photoActionLoading}
+                                  onClick={() => handleOwnerDeletePhoto(photo.id)}
+                                  className="absolute top-1.5 right-1.5 bg-red-600 text-white hover:bg-red-700 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-colors shadow-xs disabled:opacity-50"
+                                  aria-label="Remove photo"
+                                  title="Remove photo"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-400 italic py-2">
+                          No photos currently uploaded. Click "+ Upload Photos" to add photos.
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -832,11 +1089,34 @@ const OwnerDashboard = ({ onNavigateToHome, onNavigateToMyBookings }) => {
                             className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs hover:border-emerald-300 transition-colors"
                           >
                             <div className="flex items-start space-x-3">
-                              <img
-                                src={item.imageUrl && item.imageUrl.trim() ? item.imageUrl : DEFAULT_FALLBACK_IMAGE}
-                                alt={item.name}
-                                className="w-16 h-16 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100"
-                              />
+                              <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shrink-0 bg-slate-100 flex items-center justify-center text-slate-400">
+                                {resolveImageUrl(item.imageUrl) ? (
+                                  <img
+                                    src={resolveImageUrl(item.imageUrl)}
+                                    alt={item.name}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                      if (e.currentTarget.nextSibling) {
+                                        e.currentTarget.nextSibling.style.display = 'flex';
+                                      }
+                                    }}
+                                  />
+                                ) : null}
+                                <div
+                                  className="w-full h-full flex items-center justify-center text-slate-400 bg-slate-100"
+                                  style={{ display: resolveImageUrl(item.imageUrl) ? 'none' : 'flex' }}
+                                >
+                                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  </svg>
+                                </div>
+                                {item.images && item.images.length > 1 && (
+                                  <span className="absolute bottom-0 right-0 bg-slate-900/80 text-white text-[9px] font-bold px-1 rounded-tl">
+                                    📷{item.images.length}
+                                  </span>
+                                )}
+                              </div>
                               <div className="space-y-1">
                                 <div className="flex items-center space-x-2 flex-wrap">
                                   <h4 className="text-base font-bold text-slate-900">{item.name}</h4>
@@ -940,9 +1220,10 @@ const OwnerDashboard = ({ onNavigateToHome, onNavigateToMyBookings }) => {
                       >
                         <div className="flex items-start space-x-4 w-full md:w-auto">
                           <img
-                            src={booking.imageUrl && booking.imageUrl.trim() ? booking.imageUrl : DEFAULT_FALLBACK_IMAGE}
+                            src={resolveImageUrl(booking.imageUrl) || DEFAULT_FALLBACK_IMAGE}
                             alt={booking.equipmentName}
                             className="w-20 h-20 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100"
+                            onError={(e) => { e.currentTarget.src = DEFAULT_FALLBACK_IMAGE; }}
                           />
                           <div className="space-y-1">
                             <div className="flex items-center space-x-2 flex-wrap">
@@ -1027,9 +1308,10 @@ const OwnerDashboard = ({ onNavigateToHome, onNavigateToMyBookings }) => {
                       >
                         <div className="flex items-start space-x-4 w-full md:w-auto">
                           <img
-                            src={booking.imageUrl && booking.imageUrl.trim() ? booking.imageUrl : DEFAULT_FALLBACK_IMAGE}
+                            src={resolveImageUrl(booking.imageUrl) || DEFAULT_FALLBACK_IMAGE}
                             alt={booking.equipmentName}
                             className="w-20 h-20 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100"
+                            onError={(e) => { e.currentTarget.src = DEFAULT_FALLBACK_IMAGE; }}
                           />
                           <div className="space-y-1">
                             <div className="flex items-center space-x-2 flex-wrap">
@@ -1127,7 +1409,7 @@ const OwnerDashboard = ({ onNavigateToHome, onNavigateToMyBookings }) => {
                         >
                           <div className="flex items-start space-x-4 w-full md:w-auto">
                             <img
-                              src={booking.imageUrl && booking.imageUrl.trim() ? booking.imageUrl : DEFAULT_FALLBACK_IMAGE}
+                              src={resolveImageUrl(booking.imageUrl)}
                               alt={booking.equipmentName}
                               className="w-20 h-20 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100"
                             />
@@ -1293,7 +1575,7 @@ const OwnerDashboard = ({ onNavigateToHome, onNavigateToMyBookings }) => {
                         >
                           <div className="flex items-center space-x-3">
                             <img
-                              src={b.imageUrl && b.imageUrl.trim() ? b.imageUrl : DEFAULT_FALLBACK_IMAGE}
+                              src={resolveImageUrl(b.imageUrl)}
                               alt={b.equipmentName}
                               className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0 bg-slate-100"
                             />

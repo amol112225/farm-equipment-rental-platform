@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { createBooking } from '../../services/bookingService';
 import { fetchEquipmentRatingSummary, fetchEquipmentReviews } from '../../services/reviewService';
+import { resolveImageUrl } from '../../services/equipmentService';
 
 /**
  * BookingModal Component
@@ -68,6 +69,16 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
     }
   };
 
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+
+  const photosList = equipment?.images && equipment.images.length > 0
+    ? equipment.images.map((img) => (typeof img === 'string' ? img : img.imageUrl)).filter(Boolean)
+    : (equipment?.image || equipment?.imageUrl ? [equipment.image || equipment.imageUrl] : []);
+
+  const activePhoto = photosList.length > 0 && photosList[activePhotoIndex]
+    ? resolveImageUrl(photosList[activePhotoIndex])
+    : resolveImageUrl(equipment?.image || equipment?.imageUrl);
+
   useEffect(() => {
     setHoursOrDays(1);
     setStartDateTime(getInitialLocalDateTime());
@@ -76,7 +87,10 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
     setGeneralError('');
     setShowReviews(Boolean(initialShowReviews));
     setEquipmentReviews([]);
-    setReviewsError('');
+    const primaryIdx = equipment?.images && Array.isArray(equipment.images)
+      ? equipment.images.findIndex((img) => img && (img.isPrimary === true || img.primary === true))
+      : 0;
+    setActivePhotoIndex(primaryIdx >= 0 ? primaryIdx : 0);
 
     if (
       propRating !== undefined &&
@@ -181,11 +195,25 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
       >
         {/* Modal Header */}
         <div className="relative h-44 sm:h-52 bg-slate-100 shrink-0">
-          <img
-            src={equipment.image || equipment.imageUrl}
-            alt={equipment.name}
-            className="w-full h-full object-cover"
-          />
+          {activePhoto ? (
+            <img
+              src={activePhoto}
+              alt={equipment.name}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                if (e.currentTarget.nextSibling) {
+                  e.currentTarget.nextSibling.style.display = 'flex';
+                }
+              }}
+            />
+          ) : null}
+          <div
+            className="w-full h-full flex items-center justify-center text-slate-400 bg-slate-100"
+            style={{ display: activePhoto ? 'none' : 'flex' }}
+          >
+            <span className="text-4xl">🚜</span>
+          </div>
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent flex items-end p-5">
             <div>
               <span className="bg-emerald-500 text-white text-xs font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
@@ -199,7 +227,7 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-3 right-3 bg-slate-900/60 text-white hover:bg-slate-900 p-2 rounded-full transition-colors"
+            className="absolute top-3 right-3 bg-slate-900/60 text-white hover:bg-slate-900 p-2 rounded-full transition-colors z-10"
             aria-label="Close modal"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -207,6 +235,34 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
             </svg>
           </button>
         </div>
+
+        {/* Multi-Photo Gallery Thumbnails Strip */}
+        {photosList.length > 1 && (
+          <div className="px-5 py-2.5 bg-slate-900 flex items-center gap-2 overflow-x-auto shrink-0">
+            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mr-1 shrink-0">
+              Photos ({photosList.length}):
+            </span>
+            {photosList.map((photoUrl, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => setActivePhotoIndex(idx)}
+                className={`w-10 h-10 rounded-lg overflow-hidden border-2 transition-all shrink-0 cursor-pointer ${
+                  idx === activePhotoIndex
+                    ? 'border-emerald-400 scale-105 shadow-sm ring-1 ring-emerald-400'
+                    : 'border-slate-700 opacity-60 hover:opacity-100'
+                }`}
+                title={`Photo ${idx + 1}`}
+              >
+                <img
+                  src={resolveImageUrl(photoUrl)}
+                  alt={`Thumbnail ${idx + 1}`}
+                  className="w-full h-full object-cover"
+                />
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Modal Content / Form */}
         <form onSubmit={handleSubmit} className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-grow">

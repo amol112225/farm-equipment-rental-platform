@@ -7,7 +7,7 @@ import AddEquipmentModal from '../features/equipment/components/AddEquipmentModa
 import MyEquipmentModal from '../features/equipment/components/MyEquipmentModal';
 import MyBookingsModal from '../features/booking/components/MyBookingsModal';
 import OwnerDashboardModal from '../features/dashboard/components/OwnerDashboardModal';
-import { fetchPublicEquipment } from '../services/equipmentService';
+import { fetchPublicEquipment, resolveImageUrl } from '../services/equipmentService';
 import { useAuth } from '../context/AuthContext';
 
 // Default fallback image for listings without a custom image URL
@@ -210,7 +210,8 @@ const Home = ({ onNavigateToOwnerDashboard, onNavigateToMyBookings }) => {
                   key={item.id}
                   id={item.id}
                   equipmentId={item.id}
-                  image={item.imageUrl && item.imageUrl.trim() ? item.imageUrl : DEFAULT_FALLBACK_IMAGE}
+                  image={item.imageUrl}
+                  images={item.images || []}
                   name={item.name}
                   category={item.category}
                   price={item.price}

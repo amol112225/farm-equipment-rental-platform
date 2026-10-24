@@ -2,6 +2,8 @@ package com.agrorent.backend.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 public class EquipmentResponse {
 
@@ -14,6 +16,7 @@ public class EquipmentResponse {
     private String bookingType;
     private String location;
     private String imageUrl;
+    private List<EquipmentImageResponse> images = new ArrayList<>();
     private Boolean isAvailable;
 
     // Safe owner metadata (prevents recursive serialization and privacy leaks)
@@ -35,10 +38,14 @@ public class EquipmentResponse {
     }
 
     public EquipmentResponse(Long id, String name, String category, String description, BigDecimal price, String priceUnit, String bookingType, String location, String imageUrl, Boolean isAvailable, Long ownerId, String ownerName, LocalDateTime createdAt, LocalDateTime updatedAt) {
-        this(id, name, category, description, price, priceUnit, bookingType, location, imageUrl, isAvailable, ownerId, ownerName, 0.0, 0L, createdAt, updatedAt);
+        this(id, name, category, description, price, priceUnit, bookingType, location, imageUrl, new ArrayList<>(), isAvailable, ownerId, ownerName, 0.0, 0L, createdAt, updatedAt);
     }
 
     public EquipmentResponse(Long id, String name, String category, String description, BigDecimal price, String priceUnit, String bookingType, String location, String imageUrl, Boolean isAvailable, Long ownerId, String ownerName, Double rating, Long totalReviews, LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this(id, name, category, description, price, priceUnit, bookingType, location, imageUrl, new ArrayList<>(), isAvailable, ownerId, ownerName, rating, totalReviews, createdAt, updatedAt);
+    }
+
+    public EquipmentResponse(Long id, String name, String category, String description, BigDecimal price, String priceUnit, String bookingType, String location, String imageUrl, List<EquipmentImageResponse> images, Boolean isAvailable, Long ownerId, String ownerName, Double rating, Long totalReviews, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.name = name;
         this.category = category;
@@ -48,6 +55,7 @@ public class EquipmentResponse {
         this.bookingType = bookingType;
         this.location = location;
         this.imageUrl = imageUrl;
+        this.images = images != null ? images : new ArrayList<>();
         this.isAvailable = isAvailable;
         this.ownerId = ownerId;
         this.ownerName = ownerName;
@@ -203,5 +211,13 @@ public class EquipmentResponse {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public List<EquipmentImageResponse> getImages() {
+        return images;
+    }
+
+    public void setImages(List<EquipmentImageResponse> images) {
+        this.images = images != null ? images : new ArrayList<>();
     }
 }

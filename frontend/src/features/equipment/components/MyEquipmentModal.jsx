@@ -1,15 +1,25 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../../context/AuthContext';
-import { fetchMyEquipment, updateEquipment, deleteEquipment } from '../../../services/equipmentService';
+import {
+  fetchMyEquipment,
+  updateEquipment,
+  deleteEquipment,
+  uploadEquipmentPhotos,
+  deleteEquipmentPhoto,
+  setPrimaryEquipmentPhoto,
+  resolveImageUrl,
+} from '../../../services/equipmentService';
 
 /**
  * MyEquipmentModal Component
- * Allows authenticated farmers to manage (view, edit availability, update, delete) their own equipment listings.
+ * Allows authenticated farmers to manage (view, edit, upload/remove photos, delete)
+ * their own equipment listings.
  */
 const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }) => {
   if (!isOpen) return null;
 
-  const { token, isAuthenticated, currentFarmer } = useAuth();
+  const { token, isAuthenticated } = useAuth();
+  const fileInputRef = useRef(null);
 
   const [myListings, setMyListings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -18,6 +28,10 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
 
   // Editing state
   const [editingItem, setEditingItem] = useState(null);
+  const [editingItemPhotos, setEditingItemPhotos] = useState([]);
+  const [selectedPrimaryPhotoId, setSelectedPrimaryPhotoId] = useState(null);
+  const [photoActionLoading, setPhotoActionLoading] = useState(false);
+  const [photoError, setPhotoError] = useState('');
   const [editFormData, setEditFormData] = useState({
     name: '',
     category: '',
@@ -47,6 +61,10 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
     'Other Machinery',
   ];
 
+  const MAX_PHOTOS = 5;
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+  const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+
   const loadListings = useCallback(async () => {
     if (!token) return;
     setIsLoading(true);
@@ -67,11 +85,21 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
       setEditingItem(null);
       setDeletingId(null);
       setSuccessMessage('');
+      setPhotoError('');
     }
   }, [isOpen, loadListings]);
 
   const startEdit = (item) => {
     setEditingItem(item);
+    const photos =
+      item.images && item.images.length > 0
+        ? item.images
+        : item.imageUrl
+        ? [{ id: null, imageUrl: item.imageUrl, isPrimary: true }]
+        : [];
+    setEditingItemPhotos(photos);
+    const activePrimary = photos.find((p) => p.isPrimary) || photos[0] || null;
+    setSelectedPrimaryPhotoId(activePrimary?.id || null);
     setEditFormData({
       name: item.name || '',
       category: item.category || 'Tractors',
@@ -80,16 +108,20 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
       priceUnit: item.priceUnit || 'hour',
       bookingType: item.bookingType || 'instant',
       location: item.location || '',
-      imageUrl: item.imageUrl || '',
+      imageUrl: item.imageUrl || activePrimary?.imageUrl || '',
       isAvailable: item.isAvailable !== false,
     });
     setFieldErrors({});
     setGeneralError('');
+    setPhotoError('');
   };
 
   const cancelEdit = () => {
     setEditingItem(null);
+    setEditingItemPhotos([]);
+    setSelectedPrimaryPhotoId(null);
     setFieldErrors({});
+    setPhotoError('');
   };
 
   const handleEditChange = (e) => {
@@ -98,6 +130,153 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
     setEditFormData((prev) => ({ ...prev, [name]: val }));
     if (fieldErrors[name]) {
       setFieldErrors((prev) => ({ ...prev, [name]: null }));
+    }
+  };
+
+  const handleUploadPhotos = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length || !editingItem) return;
+    setPhotoError('');
+
+    if (editingItemPhotos.length + files.length > MAX_PHOTOS) {
+      setPhotoError(`Maximum ${MAX_PHOTOS} photos allowed per equipment listing.`);
+      return;
+    }
+
+    const allowedExts = ['.jpg', '.jpeg', '.png', '.webp'];
+    for (const file of files) {
+      const lowerName = file.name ? file.name.toLowerCase() : '';
+      const hasValidExt = allowedExts.some((ext) => lowerName.endsWith(ext));
+
+      if (!ALLOWED_TYPES.includes(file.type.toLowerCase()) || !hasValidExt) {
+        setPhotoError(`"${file.name}" has an unsupported format. Only JPEG, PNG, and WebP are allowed.`);
+        return;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        setPhotoError(`"${file.name}" exceeds the maximum 5MB size limit.`);
+        return;
+      }
+      if (file.size === 0) {
+        setPhotoError(`"${file.name}" is empty. Please choose a valid photo.`);
+        return;
+      }
+
+      try {
+        await new Promise((resolve, reject) => {
+          const testUrl = URL.createObjectURL(file);
+          const img = new Image();
+          img.onload = () => {
+            URL.revokeObjectURL(testUrl);
+            resolve(true);
+          };
+          img.onerror = () => {
+            URL.revokeObjectURL(testUrl);
+            reject(new Error(`"${file.name}" contains invalid or unreadable image content.`));
+          };
+          img.src = testUrl;
+        });
+      } catch (err) {
+        setPhotoError(err.message);
+        return;
+      }
+    }
+
+    setPhotoActionLoading(true);
+    try {
+      const res = await uploadEquipmentPhotos(editingItem.id, files, token);
+      if (res?.data) {
+        setEditingItem(res.data);
+        const updatedPhotos = res.data.images || [];
+        setEditingItemPhotos(updatedPhotos);
+        const activePrimary = updatedPhotos.find((p) => p.isPrimary) || updatedPhotos[0] || null;
+        setSelectedPrimaryPhotoId(activePrimary?.id || null);
+        if (res.data.imageUrl || activePrimary?.imageUrl) {
+          setEditFormData((prev) => ({
+            ...prev,
+            imageUrl: res.data.imageUrl || activePrimary.imageUrl,
+          }));
+        }
+        setSuccessMessage('Photos uploaded successfully.');
+        await loadListings();
+        if (onRefreshData) onRefreshData();
+      }
+    } catch (err) {
+      setPhotoError(err.message || 'Failed to upload photos.');
+    } finally {
+      setPhotoActionLoading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDeletePhoto = async (photoId) => {
+    if (!editingItem) return;
+    if (!photoId) {
+      // Legacy photo without database ID: clear imageUrl locally
+      setEditFormData((prev) => ({ ...prev, imageUrl: '' }));
+      setEditingItemPhotos([]);
+      setSelectedPrimaryPhotoId(null);
+      return;
+    }
+
+    setPhotoActionLoading(true);
+    setPhotoError('');
+    try {
+      const res = await deleteEquipmentPhoto(editingItem.id, photoId, token);
+      if (res?.data) {
+        setEditingItem(res.data);
+        const updatedPhotos = res.data.images || [];
+        setEditingItemPhotos(updatedPhotos);
+        const newPrimary = updatedPhotos.find((p) => p.isPrimary) || updatedPhotos[0] || null;
+        setSelectedPrimaryPhotoId(newPrimary?.id || null);
+        setEditFormData((prev) => ({
+          ...prev,
+          imageUrl: res.data.imageUrl || newPrimary?.imageUrl || '',
+        }));
+        setSuccessMessage('Photo removed successfully.');
+        await loadListings();
+        if (onRefreshData) onRefreshData();
+      }
+    } catch (err) {
+      setPhotoError(err.message || 'Failed to remove photo.');
+    } finally {
+      setPhotoActionLoading(false);
+    }
+  };
+
+  const handleSetPrimary = async (photoId) => {
+    if (!editingItem || !photoId) return;
+
+    // Immediately update UI selection
+    setSelectedPrimaryPhotoId(photoId);
+    setEditingItemPhotos((prev) =>
+      prev.map((photo) => ({
+        ...photo,
+        isPrimary: photo.id === photoId,
+      }))
+    );
+    const chosen = editingItemPhotos.find((p) => p.id === photoId);
+    if (chosen) {
+      setEditFormData((prev) => ({ ...prev, imageUrl: chosen.imageUrl }));
+    }
+
+    setPhotoActionLoading(true);
+    setPhotoError('');
+    try {
+      const res = await setPrimaryEquipmentPhoto(editingItem.id, photoId, token);
+      if (res?.data) {
+        setEditingItem(res.data);
+        setEditingItemPhotos(res.data.images || []);
+        if (res.data.imageUrl) {
+          setEditFormData((prev) => ({ ...prev, imageUrl: res.data.imageUrl }));
+        }
+        setSuccessMessage('Primary photo updated.');
+        await loadListings();
+        if (onRefreshData) onRefreshData();
+      }
+    } catch (err) {
+      setPhotoError(err.message || 'Failed to update primary photo.');
+    } finally {
+      setPhotoActionLoading(false);
     }
   };
 
@@ -129,6 +308,7 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
         bookingType: editFormData.bookingType,
         location: editFormData.location.trim(),
         imageUrl: editFormData.imageUrl ? editFormData.imageUrl.trim() : null,
+        primaryImageId: selectedPrimaryPhotoId || (editingItemPhotos.find((p) => p.isPrimary)?.id) || null,
         isAvailable: editFormData.isAvailable,
       };
 
@@ -175,7 +355,7 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
           <div>
             <h2 className="text-xl font-bold tracking-tight">My Equipment Listings</h2>
             <p className="text-xs text-emerald-100 mt-1">
-              Manage, edit, or remove your registered agricultural machinery
+              Manage, edit photos, update availability, or remove your machinery
             </p>
           </div>
           <div className="flex items-center space-x-3 pr-8">
@@ -260,6 +440,114 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
                 />
                 {fieldErrors.name && (
                   <p className="text-xs text-red-600 font-medium mt-1">{fieldErrors.name}</p>
+                )}
+              </div>
+
+              {/* Photos Management Section in Edit Mode */}
+              <div className="border border-slate-200 rounded-xl p-4 bg-white space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      Equipment Photos ({editingItemPhotos.length}/{MAX_PHOTOS})
+                    </label>
+                    <p className="text-[11px] text-slate-500">
+                      Manage uploaded photos or add new ones (JPEG, PNG, WebP up to 5MB)
+                    </p>
+                  </div>
+                  {editingItemPhotos.length < MAX_PHOTOS && (
+                    <div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        multiple
+                        onChange={handleUploadPhotos}
+                        disabled={photoActionLoading}
+                        className="hidden"
+                        id="edit-equipment-photo-upload"
+                      />
+                      <label
+                        htmlFor="edit-equipment-photo-upload"
+                        className={`px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer flex items-center space-x-1 ${
+                          photoActionLoading ? 'opacity-50 pointer-events-none' : ''
+                        }`}
+                      >
+                        <span>{photoActionLoading ? 'Uploading...' : '+ Upload Photos'}</span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+
+                {photoError && (
+                  <div className="p-2 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs font-medium">
+                    ⚠️ {photoError}
+                  </div>
+                )}
+
+                {editingItemPhotos.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
+                    {editingItemPhotos.map((photo, idx) => {
+                      const photoUrl = resolveImageUrl(photo.imageUrl);
+                      const isPhotoPrimary = photo.id
+                        ? (selectedPrimaryPhotoId === photo.id || Boolean(photo.isPrimary))
+                        : Boolean(photo.isPrimary);
+                      return (
+                        <div
+                          key={photo.id || idx}
+                          className={`relative rounded-lg overflow-hidden border-2 bg-slate-100 h-28 group transition-all ${
+                            isPhotoPrimary
+                              ? 'border-emerald-600 ring-2 ring-emerald-500/40 shadow-xs'
+                              : 'border-slate-200'
+                          }`}
+                        >
+                          <img
+                            src={photoUrl}
+                            alt={`Equipment photo ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+
+                          {/* Primary Badge or Action */}
+                          {isPhotoPrimary ? (
+                            <span className="absolute top-1.5 left-1.5 bg-emerald-700 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-xs flex items-center gap-1">
+                              <span>★</span>
+                              <span>Primary Photo</span>
+                            </span>
+                          ) : (
+                            photo.id && (
+                              <button
+                                type="button"
+                                disabled={photoActionLoading}
+                                onClick={() => handleSetPrimary(photo.id)}
+                                className="absolute top-1.5 left-1.5 bg-slate-900/80 hover:bg-emerald-700 text-white text-[10px] font-semibold px-2 py-0.5 rounded transition-colors disabled:opacity-50 shadow-xs"
+                                title="Click to set this as the main cover photo"
+                              >
+                                Set as Primary
+                              </button>
+                            )
+                          )}
+
+                          {/* Delete Button */}
+                          <button
+                            type="button"
+                            disabled={photoActionLoading}
+                            onClick={() => handleDeletePhoto(photo.id)}
+                            className="absolute top-1.5 right-1.5 bg-red-600 text-white hover:bg-red-700 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-colors shadow-xs disabled:opacity-50"
+                            aria-label="Remove photo"
+                            title="Remove photo"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 italic py-2">
+                    No photos currently uploaded for this equipment. Click "+ Upload Photos" above to add photos.
+                  </p>
                 )}
               </div>
 
@@ -370,20 +658,6 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Image URL (Optional)
-                </label>
-                <input
-                  type="url"
-                  name="imageUrl"
-                  maxLength={500}
-                  value={editFormData.imageUrl}
-                  onChange={handleEditChange}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
                   Description (Optional)
                 </label>
                 <textarea
@@ -436,74 +710,108 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
                       Total Listed Machinery: <strong>{myListings.length}</strong>
                     </span>
                   </div>
-                  {myListings.map((item) => (
-                    <div
-                      key={item.id}
-                      className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:border-emerald-300 transition-colors"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center space-x-2">
-                          <h4 className="text-base font-bold text-slate-900">{item.name}</h4>
-                          <span
-                            className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${item.isAvailable
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : 'bg-rose-50 text-rose-700 border-rose-200'
-                              }`}
-                          >
-                            {item.isAvailable ? 'Available' : 'Unavailable'}
-                          </span>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-                          <span>🏷️ {item.category}</span>
-                          <span>💰 ₹{item.price} / {item.priceUnit}</span>
-                          <span>📍 {item.location}</span>
-                          <span>⚡ {item.bookingType}</span>
-                        </div>
-                      </div>
-
-                      {/* Action buttons */}
-                      <div className="flex items-center space-x-2 shrink-0">
-                        {deletingId === item.id ? (
-                          <div className="flex items-center space-x-2 bg-red-50 p-2 rounded-lg border border-red-200">
-                            <span className="text-xs text-red-800 font-semibold">Delete?</span>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteConfirm(item.id)}
-                              disabled={isDeleting}
-                              className="px-2.5 py-1 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded transition-colors"
+                  {myListings.map((item) => {
+                    const primaryThumb = resolveImageUrl(item.imageUrl);
+                    return (
+                      <div
+                        key={item.id}
+                        className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:border-emerald-300 transition-colors"
+                      >
+                        <div className="flex items-start gap-3">
+                          {/* Primary Thumbnail */}
+                          <div className="w-16 h-16 rounded-lg bg-slate-100 overflow-hidden shrink-0 border border-slate-200 relative">
+                            {primaryThumb ? (
+                              <img
+                                src={primaryThumb}
+                                alt={item.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  if (e.currentTarget.nextSibling) {
+                                    e.currentTarget.nextSibling.style.display = 'flex';
+                                  }
+                                }}
+                              />
+                            ) : null}
+                            <div
+                              className="w-full h-full flex items-center justify-center text-slate-400 text-xl"
+                              style={{ display: primaryThumb ? 'none' : 'flex' }}
                             >
-                              {isDeleting ? 'Deleting...' : 'Yes, Delete'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setDeletingId(null)}
-                              className="px-2.5 py-1 text-xs font-semibold text-slate-600 bg-white border border-slate-300 rounded"
-                            >
-                              Cancel
-                            </button>
+                              🚜
+                            </div>
+                            {item.images && item.images.length > 1 && (
+                              <div className="absolute bottom-0 right-0 bg-slate-900/80 text-white text-[9px] font-bold px-1 rounded-tl">
+                                📷{item.images.length}
+                              </div>
+                            )}
                           </div>
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => startEdit(item)}
-                              className="px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors"
-                            >
-                              Edit Listing
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setDeletingId(item.id)}
-                              className="px-3 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors"
-                            >
-                              Delete
-                            </button>
-                          </>
-                        )}
+
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-2">
+                              <h4 className="text-base font-bold text-slate-900">{item.name}</h4>
+                              <span
+                                className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
+                                  item.isAvailable
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : 'bg-rose-50 text-rose-700 border-rose-200'
+                                }`}
+                              >
+                                {item.isAvailable ? 'Available' : 'Unavailable'}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                              <span>🏷️ {item.category}</span>
+                              <span>💰 ₹{item.price} / {item.priceUnit}</span>
+                              <span>📍 {item.location}</span>
+                              <span>⚡ {item.bookingType}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex items-center space-x-2 shrink-0">
+                          {deletingId === item.id ? (
+                            <div className="flex items-center space-x-2 bg-red-50 p-2 rounded-lg border border-red-200">
+                              <span className="text-xs text-red-800 font-semibold">Delete?</span>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteConfirm(item.id)}
+                                disabled={isDeleting}
+                                className="px-2.5 py-1 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded transition-colors"
+                              >
+                                {isDeleting ? 'Deleting...' : 'Yes, Delete'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingId(null)}
+                                className="px-2.5 py-1 text-xs font-semibold text-slate-600 bg-white border border-slate-300 rounded"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => startEdit(item)}
+                                className="px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors"
+                              >
+                                Edit & Photos
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingId(item.id)}
+                                className="px-3 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors"
+                              >
+                                Delete
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

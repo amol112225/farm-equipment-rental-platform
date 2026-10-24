@@ -35,14 +35,18 @@ This guide details the deployment steps for the AgroRent platform across **Manag
    - **Password**
    - **SSL Requirements** (most managed providers require `useSSL=true&requireSSL=true`)
 
-5. Initialize the database schema using the version-controlled migration script:
-   - Run the script located at [`docs/schema/V1__init_schema.sql`](schema/V1__init_schema.sql) in your MySQL management console (or MySQL Workbench / CLI).
-   - This explicitly creates the `farmers`, `equipments`, and `bookings` tables with all primary keys, indexes, foreign keys, and character sets.
+5. Initialize the database schema using the version-controlled migration scripts:
+   - For a fresh database, run [`docs/schema/V1__init_schema.sql`](schema/V1__init_schema.sql).
+   - Apply subsequent migrations:
+     - [`docs/schema/V2__create_reviews_table.sql`](schema/V2__create_reviews_table.sql) (Milestone 1 Owner Reviews)
+     - [`docs/schema/V3__add_equipment_to_reviews.sql`](schema/V3__add_equipment_to_reviews.sql) (Milestone 1 Equipment Reviews)
+     - [`docs/schema/V4__create_equipment_images_table.sql`](schema/V4__create_equipment_images_table.sql) (Milestone 2 Equipment Photos)
+   - These scripts explicitly create tables, indexes, and constraints while safely preserving existing records.
 
 > [!IMPORTANT]
 > **Controlled Production Schema Strategy**:
 > Never use `ddl-auto=create` or `ddl-auto=create-drop` in production, as they drop tables and cause irrecoverable data loss.
-> With `V1__init_schema.sql` executed, production strictly runs with `SPRING_JPA_HIBERNATE_DDL_AUTO=validate`. Hibernate only validates the existing schema at startup without issuing any DDL modifications.
+> With SQL migration scripts executed, production strictly runs with `SPRING_JPA_HIBERNATE_DDL_AUTO=validate`. Hibernate verifies the schema at startup without issuing any destructive modifications.
 
 ---
 
@@ -84,6 +88,46 @@ Under **Environment Variables**, add the following:
 | `SPRING_JPA_SHOW_SQL` | `false` | Keeps SQL statements out of logs |
 | `JWT_SECRET` | `<32+_CHAR_RANDOM_SECRET>` | Generate using `openssl rand -base64 32` |
 | `CORS_ALLOWED_ORIGINS` | `https://your-agrorent-app.vercel.app` | Exact URL of your deployed frontend on Vercel |
+| `CLOUDINARY_CLOUD_NAME` | `<your_cloud_name>` | Cloudinary account name for persistent CDN photo storage |
+| `CLOUDINARY_API_KEY` | `<your_api_key>` | Cloudinary API Key (Backend only, never expose to frontend) |
+| `CLOUDINARY_API_SECRET` | `<your_api_secret>` | Cloudinary API Secret (Backend only, strictly private) |
+
+---
+
+## Phase 2.5: Image Storage Configuration (Cloudinary & Local Fallback)
+
+### Why Cloudinary Was Selected
+Render web services run in stateless Docker containers with **ephemeral filesystems**. Any image files saved locally inside the container filesystem are permanently wiped whenever Render restarts, redeploys, or scales the instance.
+
+**Cloudinary** was selected as the persistent cloud image storage provider because:
+1. **Persistent Cloud Storage**: Files are permanently stored in the cloud and distributed across global CDNs.
+2. **Compatibility with Vercel & Render**: Render backend uploads the image securely using backend-only credentials; Vercel frontend loads photos directly from Cloudinary HTTPS URLs.
+3. **No Private Secrets on Frontend**: The frontend never has access to `CLOUDINARY_API_SECRET`. All uploads go through the Spring Boot backend (`/api/equipment` multipart endpoints).
+4. **Zero-Configuration Local Development**: When `CLOUDINARY_CLOUD_NAME` is omitted or empty, the backend automatically falls back to `LocalStorageService`, storing photos in `backend/uploads/equipment/` and serving them at `/api/uploads/equipment/**`.
+
+### Configuration Steps (Production on Render)
+1. Sign up for a free account at [cloudinary.com](https://cloudinary.com/).
+2. On your Cloudinary Dashboard, find:
+   - **Cloud Name**
+   - **API Key**
+   - **API Secret**
+3. In your Render Dashboard under **Environment Variables**, set:
+   - `CLOUDINARY_CLOUD_NAME`: your Cloud Name
+   - `CLOUDINARY_API_KEY`: your API Key
+   - `CLOUDINARY_API_SECRET`: your API Secret
+4. **Upload Limits & Formats**:
+   - Maximum file size: **5 MB per photo**.
+   - Maximum photos per equipment: **5 photos**.
+   - Supported formats: **JPEG/JPG**, **PNG**, **WebP**.
+   - Security: Magic byte inspection and decodability validation are enforced on the backend. Files with spoofed extensions or corrupted headers are rejected with HTTP 400.
+
+### Verifying Image Persistence After Deployment
+1. Log into AgroRent on your deployed Vercel frontend.
+2. Create or edit an equipment listing and upload photos.
+3. Inspect the image URL: it should start with `https://res.cloudinary.com/<your_cloud_name>/image/upload/...`.
+4. In the Render Dashboard, trigger a **Manual Deploy** -> **Deploy latest commit** or restart the service.
+5. Once the backend finishes restarting, refresh the frontend page.
+6. Verify that the equipment card and equipment booking detail modal continue to display the uploaded photos without broken links or missing images.
 
 Click **Deploy Web Service**. Once deployed, test the health check endpoint:
 ```text

@@ -86,6 +86,15 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handle multipart file size limit exceeded -> HTTP 400 Bad Request
+     */
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMaxUploadSizeExceededException(org.springframework.web.multipart.MaxUploadSizeExceededException ex) {
+        ApiResponse<Object> response = ApiResponse.error("File size exceeds the maximum permitted limit of 5MB.", null);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    /**
      * Catch-all handler for unexpected internal server errors -> HTTP 500 Internal Server Error
      * Prevents leakage of stack traces, SQL syntax details, or sensitive server configs.
      */

@@ -40,6 +40,8 @@ public class EquipmentUpdateRequest {
     @Size(max = 500, message = "Image URL must not exceed 500 characters")
     private String imageUrl;
 
+    private Long primaryImageId;
+
     private Boolean isAvailable;
 
     public EquipmentUpdateRequest() {
@@ -54,6 +56,19 @@ public class EquipmentUpdateRequest {
         this.bookingType = bookingType;
         this.location = location;
         this.imageUrl = imageUrl;
+        this.isAvailable = isAvailable;
+    }
+
+    public EquipmentUpdateRequest(String name, String category, String description, BigDecimal price, String priceUnit, String bookingType, String location, String imageUrl, Long primaryImageId, Boolean isAvailable) {
+        this.name = name;
+        this.category = category;
+        this.description = description;
+        this.price = price;
+        this.priceUnit = priceUnit;
+        this.bookingType = bookingType;
+        this.location = location;
+        this.imageUrl = imageUrl;
+        this.primaryImageId = primaryImageId;
         this.isAvailable = isAvailable;
     }
 
@@ -119,6 +134,14 @@ public class EquipmentUpdateRequest {
 
     public void setImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
+    }
+
+    public Long getPrimaryImageId() {
+        return primaryImageId;
+    }
+
+    public void setPrimaryImageId(Long primaryImageId) {
+        this.primaryImageId = primaryImageId;
     }
 
     public Boolean getIsAvailable() {

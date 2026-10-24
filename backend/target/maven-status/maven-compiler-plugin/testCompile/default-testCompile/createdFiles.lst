@@ -1,3 +1,4 @@
 com\agrorent\backend\security\JwtTokenProviderTest.class
 com\agrorent\backend\service\EquipmentServiceImplTest.class
+com\agrorent\backend\service\ReviewServiceImplTest.class
 com\agrorent\backend\service\BookingServiceImplTest.class

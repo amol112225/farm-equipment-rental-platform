@@ -50,6 +50,11 @@ $env:JWT_SECRET="AgroRent_Super_Secure_Local_Dev_JWT_Secret_32_Bytes!"
 
 # (Optional) Allowed CORS Origins for local development
 $env:CORS_ALLOWED_ORIGINS="http://localhost:5173,http://localhost:5174,http://localhost:3000"
+
+# (Optional) Cloudinary image storage (if omitted, automatically falls back to local disk storage in uploads/equipment)
+$env:CLOUDINARY_CLOUD_NAME="your_cloud_name"
+$env:CLOUDINARY_API_KEY="your_api_key"
+$env:CLOUDINARY_API_SECRET="your_api_secret"
 ```
 
 ### B. Run Backend Tests

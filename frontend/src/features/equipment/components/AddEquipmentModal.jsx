@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { createEquipment } from '../../../services/equipmentService';
 
 /**
  * AddEquipmentModal Component
- * Dialog allowing authenticated farmers to list new agricultural equipment.
+ * Dialog allowing authenticated farmers to list new agricultural equipment
+ * with direct photo upload (JPEG, PNG, WebP up to 5MB, multiple photos).
  */
 const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
   if (!isOpen) return null;
 
   const { token, isAuthenticated } = useAuth();
+  const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -23,9 +25,13 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
     isAvailable: true,
   });
 
+  const [selectedPhotos, setSelectedPhotos] = useState([]); // [{ file, previewUrl, id }]
+  const [primaryPhotoIndex, setPrimaryPhotoIndex] = useState(0);
+  const [photoError, setPhotoError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
   const [generalError, setGeneralError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showUrlFallback, setShowUrlFallback] = useState(false);
 
   const categories = [
     'Tractors',
@@ -38,6 +44,21 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
     'Other Machinery',
   ];
 
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+  const MAX_PHOTOS = 5;
+  const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+
+  // Cleanup object URLs on unmount or photo list changes
+  useEffect(() => {
+    return () => {
+      selectedPhotos.forEach((photo) => {
+        if (photo.previewUrl) {
+          URL.revokeObjectURL(photo.previewUrl);
+        }
+      });
+    };
+  }, [selectedPhotos]);
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     const val = type === 'checkbox' ? checked : value;
@@ -47,10 +68,94 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
     }
   };
 
+  const handleFileChange = async (e) => {
+    setPhotoError('');
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    if (selectedPhotos.length + files.length > MAX_PHOTOS) {
+      setPhotoError(`You can upload a maximum of ${MAX_PHOTOS} photos per equipment listing.`);
+      return;
+    }
+
+    const allowedExts = ['.jpg', '.jpeg', '.png', '.webp'];
+    const newPhotos = [];
+
+    for (const file of files) {
+      const lowerName = file.name ? file.name.toLowerCase() : '';
+      const hasValidExt = allowedExts.some((ext) => lowerName.endsWith(ext));
+
+      if (!ALLOWED_TYPES.includes(file.type.toLowerCase()) || !hasValidExt) {
+        setPhotoError(`"${file.name}" has an unsupported format. Only JPEG, PNG, and WebP are allowed.`);
+        return;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        setPhotoError(`"${file.name}" exceeds the maximum 5MB file size limit.`);
+        return;
+      }
+      if (file.size === 0) {
+        setPhotoError(`"${file.name}" is empty. Please select a valid photo.`);
+        return;
+      }
+
+      try {
+        const validatedPhoto = await new Promise((resolve, reject) => {
+          const previewUrl = URL.createObjectURL(file);
+          const img = new Image();
+          img.onload = () => {
+            resolve({
+              file,
+              previewUrl,
+              id: `${file.name}-${Date.now()}-${Math.random()}`,
+            });
+          };
+          img.onerror = () => {
+            URL.revokeObjectURL(previewUrl);
+            reject(new Error(`"${file.name}" contains invalid or unreadable image content.`));
+          };
+          img.src = previewUrl;
+        });
+        newPhotos.push(validatedPhoto);
+      } catch (err) {
+        setPhotoError(err.message);
+        return;
+      }
+    }
+
+    setSelectedPhotos((prev) => [...prev, ...newPhotos]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemovePhoto = (indexToRemove) => {
+    setSelectedPhotos((prev) => {
+      const removed = prev[indexToRemove];
+      if (removed && removed.previewUrl) {
+        URL.revokeObjectURL(removed.previewUrl);
+      }
+      const updated = prev.filter((_, idx) => idx !== indexToRemove);
+      if (updated.length === 0) {
+        setPrimaryPhotoIndex(0);
+      } else if (indexToRemove === primaryPhotoIndex) {
+        // Automatically designate the first remaining photo as primary
+        setPrimaryPhotoIndex(0);
+      } else if (indexToRemove < primaryPhotoIndex) {
+        setPrimaryPhotoIndex(primaryPhotoIndex - 1);
+      }
+      return updated;
+    });
+  };
+
+  const handleSetPrimary = (index) => {
+    setPrimaryPhotoIndex(index);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFieldErrors({});
     setGeneralError('');
+    setPhotoError('');
 
     if (!isAuthenticated || !token) {
       setGeneralError('Please log in to your farmer account to list equipment.');
@@ -70,23 +175,38 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
     setIsSubmitting(true);
 
     try {
-      const payload = {
-        name: formData.name.trim(),
-        category: formData.category.trim(),
-        description: formData.description ? formData.description.trim() : '',
-        price: numericPrice,
-        priceUnit: formData.priceUnit,
-        bookingType: formData.bookingType,
-        location: formData.location.trim(),
-        imageUrl: formData.imageUrl ? formData.imageUrl.trim() : null,
-        isAvailable: formData.isAvailable,
-      };
+      const multipartData = new FormData();
+      multipartData.append('name', formData.name.trim());
+      multipartData.append('category', formData.category.trim());
+      multipartData.append('description', formData.description ? formData.description.trim() : '');
+      multipartData.append('price', numericPrice);
+      multipartData.append('priceUnit', formData.priceUnit);
+      multipartData.append('bookingType', formData.bookingType);
+      multipartData.append('location', formData.location.trim());
+      multipartData.append('isAvailable', formData.isAvailable);
 
-      await createEquipment(payload, token);
+      if (formData.imageUrl && formData.imageUrl.trim()) {
+        multipartData.append('imageUrl', formData.imageUrl.trim());
+      }
+
+      // Reorder photos so designated primary is appended first
+      const orderedPhotos = [...selectedPhotos];
+      if (primaryPhotoIndex > 0 && primaryPhotoIndex < orderedPhotos.length) {
+        const [primaryPhoto] = orderedPhotos.splice(primaryPhotoIndex, 1);
+        orderedPhotos.unshift(primaryPhoto);
+      }
+
+      multipartData.append('primaryIndex', 0);
+
+      orderedPhotos.forEach((item) => {
+        multipartData.append('photos', item.file);
+      });
+
+      await createEquipment(multipartData, token);
       setIsSubmitting(false);
 
       if (onSuccess) {
-        onSuccess('Equipment listing created successfully!');
+        onSuccess('Equipment listing created successfully with photos!');
       }
       onClose();
     } catch (err) {
@@ -118,7 +238,7 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
           </button>
           <h2 className="text-xl font-bold tracking-tight">List Your Equipment</h2>
           <p className="text-xs text-emerald-100 mt-1">
-            Fill in your machinery details to offer rentals to local farmers
+            Upload photos and equipment details to offer rentals to local farmers
           </p>
         </div>
 
@@ -276,23 +396,134 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
               </div>
             </div>
 
-            {/* Image URL */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                Image URL (Optional)
-              </label>
-              <input
-                type="url"
-                name="imageUrl"
-                maxLength={500}
-                value={formData.imageUrl}
-                onChange={handleChange}
-                placeholder="https://example.com/tractor-image.jpg"
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors"
-              />
-              {fieldErrors.imageUrl && (
-                <p className="text-xs text-red-600 font-medium mt-1">{fieldErrors.imageUrl}</p>
+            {/* Photo Upload Section */}
+            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/70 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    Equipment Photos (JPEG, PNG, WebP)
+                  </label>
+                  <p className="text-[11px] text-slate-500">
+                    Upload up to {MAX_PHOTOS} photos. Max 5MB per file.
+                  </p>
+                </div>
+                <span className="text-xs font-semibold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md">
+                  {selectedPhotos.length}/{MAX_PHOTOS} selected
+                </span>
+              </div>
+
+              {photoError && (
+                <div className="p-2.5 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs font-medium flex items-center gap-1.5">
+                  <span>⚠️</span>
+                  <span>{photoError}</span>
+                </div>
               )}
+
+              {/* File Input Trigger Button */}
+              {selectedPhotos.length < MAX_PHOTOS && (
+                <div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="equipment-photo-upload"
+                  />
+                  <label
+                    htmlFor="equipment-photo-upload"
+                    className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-xl bg-white cursor-pointer transition-colors group"
+                  >
+                    <div className="flex items-center space-x-2 text-slate-600 group-hover:text-emerald-700">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-xs sm:text-sm font-semibold">Choose Photos from Device</span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 mt-1">Tap to select photos from phone camera or gallery</span>
+                  </label>
+                </div>
+              )}
+
+              {/* Photo Previews Strip */}
+              {selectedPhotos.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
+                  {selectedPhotos.map((photo, idx) => (
+                    <div
+                      key={photo.id}
+                      className={`relative rounded-lg overflow-hidden border-2 bg-slate-100 h-28 group transition-all ${
+                        idx === primaryPhotoIndex
+                          ? 'border-emerald-600 ring-2 ring-emerald-500/30'
+                          : 'border-slate-200'
+                      }`}
+                    >
+                      <img
+                        src={photo.previewUrl}
+                        alt={`Preview ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+
+                      {/* Primary Badge or Set Primary Button */}
+                      {idx === primaryPhotoIndex ? (
+                        <span className="absolute top-1.5 left-1.5 bg-emerald-700 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-xs flex items-center gap-1">
+                          <span>★</span>
+                          <span>Primary Photo</span>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleSetPrimary(idx)}
+                          className="absolute top-1.5 left-1.5 bg-slate-900/80 hover:bg-emerald-700 text-white text-[10px] font-semibold px-2 py-0.5 rounded transition-colors shadow-xs"
+                          title="Click to set this as the main cover photo"
+                        >
+                          Set as Primary
+                        </button>
+                      )}
+
+                      {/* Remove Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePhoto(idx)}
+                        className="absolute top-1.5 right-1.5 bg-red-600 text-white hover:bg-red-700 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-colors shadow-xs"
+                        aria-label="Remove photo"
+                        title="Remove photo"
+                      >
+                        ✕
+                      </button>
+
+                      {/* File Name & Size Footer */}
+                      <div className="absolute bottom-0 inset-x-0 bg-slate-900/80 px-1.5 py-0.5 text-[9px] text-white truncate">
+                        {photo.file.name} ({(photo.file.size / 1024).toFixed(0)} KB)
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Optional Image URL Toggle */}
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowUrlFallback(!showUrlFallback)}
+                  className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 hover:underline flex items-center gap-1"
+                >
+                  <span>{showUrlFallback ? '▲ Hide External URL Input' : '▼ Or enter Image URL manually'}</span>
+                </button>
+                {showUrlFallback && (
+                  <div className="mt-2">
+                    <input
+                      type="url"
+                      name="imageUrl"
+                      maxLength={500}
+                      value={formData.imageUrl}
+                      onChange={handleChange}
+                      placeholder="https://example.com/tractor-image.jpg"
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Description */}
@@ -334,7 +565,7 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <span>Saving Listing...</span>
+                    <span>Uploading Photos & Saving...</span>
                   </>
                 ) : (
                   <span>Publish Listing</span>

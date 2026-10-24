@@ -32,10 +32,13 @@ The only credentials and secrets required by the current system are:
 | `VITE_API_BASE_URL` | Yes | Currently required | Public Config | Client Bundle | `frontend/src/services/api.js` | Point frontend to deployed Render backend URL |
 | `SPRING_PROFILES_ACTIVE` | Yes | Currently required (Prod) | Environment Config | Backend Only | Spring Boot runtime | Set to `prod` in Render Web Service environment |
 | `PORT` / `SERVER_PORT` | Yes | Currently required (Prod) | Server Config | Backend Only | `backend/src/main/resources/application-prod.properties`, `Dockerfile` | Injected dynamically by Render |
+| `CLOUDINARY_CLOUD_NAME` | Yes | Required for Cloud Storage (Prod) | Public Config | Backend Only | `backend/src/main/resources/application.properties` | Cloudinary account cloud name (if omitted, falls back to local storage) |
+| `CLOUDINARY_API_KEY` | Yes | Required for Cloud Storage (Prod) | Private Secret | Backend Only | `backend/src/main/resources/application.properties` | Cloudinary API Key |
+| `CLOUDINARY_API_SECRET` | Yes | Required for Cloud Storage (Prod) | Private Secret | Backend Only | `backend/src/main/resources/application.properties` | Cloudinary API Secret |
+| `UPLOAD_DIR` | Yes | Optional (Dev/Test) | System Path | Backend Only | `backend/src/main/resources/application.properties` | Local directory for uploaded files (`uploads/equipment`) |
 | Google Maps API Key | No | Not required | N/A | None | N/A | No code implements Google Maps |
 | Google OAuth / Client ID | No | Not required | N/A | None | N/A | No code implements OAuth |
 | Payment Gateway (Razorpay/Stripe) | No | Future feature | N/A | None | N/A | Feature planned for future milestone |
-| Cloud Image Storage (Cloudinary/S3) | No | Future feature | N/A | None | N/A | Listings currently accept standard image URLs |
 | Email Service (SMTP/SendGrid) | No | Future feature | N/A | None | N/A | Feature planned for future milestone |
 
 ---
@@ -79,6 +82,17 @@ The only credentials and secrets required by the current system are:
   - *Local default*: `http://localhost:8080/api`
   - *Production*: `https://agrorent-backend.onrender.com/api` (must include `/api` suffix, trailing slashes are automatically sanitized by `api.js`).
 - **Security Scope**: **Deliberately Public**. All variables starting with `VITE_` are embedded into the client-side JavaScript bundle during build time and can be inspected by any browser user. **Never put private keys or secrets in `VITE_` variables.**
+
+### E. Cloud Image Storage Credentials (`CLOUDINARY_*`)
+- **Feature**: Persistent equipment photo upload and CDN delivery (`CloudinaryImageStorageService`).
+- **Environment Variables**:
+  - `CLOUDINARY_CLOUD_NAME`: Cloudinary cloud name / account identifier.
+  - `CLOUDINARY_API_KEY`: Cloudinary API Key (Backend only).
+  - `CLOUDINARY_API_SECRET`: Cloudinary API Secret (Backend only).
+- **Graceful Fallback**:
+  - If `CLOUDINARY_CLOUD_NAME` is omitted or empty, `StorageServiceImpl` automatically falls back to `LocalStorageService`, writing files to the local directory `uploads/equipment/` and serving them at `/api/uploads/equipment/**`.
+  - For production deployments on Render (where containers have ephemeral filesystems), set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` in the Render dashboard environment.
+- **Security Scope**: **Strictly Backend Private**. Real credentials must never be committed to git, exposed via REST APIs, or prefixed with `VITE_` in frontend code.
 
 ---
 

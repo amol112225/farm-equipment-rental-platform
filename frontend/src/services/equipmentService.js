@@ -1,10 +1,26 @@
 /**
  * Equipment API Service
  * Handles REST requests to Spring Boot backend for Public Equipment search,
- * Farmer listing creation, updates, and deletion.
+ * Farmer listing creation, updates, photo uploads, and deletion.
  */
 
 import { API_BASE_URL, handleResponse } from './api';
+
+/**
+ * Resolves an image URL or relative path to a full accessible URL.
+ * Handles Cloudinary/external HTTPS URLs as well as backend relative upload paths.
+ * @param {string} url - Image URL or relative path
+ * @returns {string|null} - Resolved full URL or null if empty
+ */
+export function resolveImageUrl(url) {
+  if (!url || typeof url !== 'string' || !url.trim()) return null;
+  const trimmed = url.trim();
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
+    return trimmed;
+  }
+  const backendRoot = API_BASE_URL.replace(/\/api\/?$/, '');
+  return `${backendRoot}${trimmed.startsWith('/') ? '' : '/'}${trimmed}`;
+}
 
 /**
  * Fetch available equipment listings with optional filters.
@@ -69,18 +85,88 @@ export async function fetchMyEquipment(token) {
 
 /**
  * Create a new equipment listing as an authenticated farmer.
- * @param {Object} equipmentData
+ * Supports both JSON object and FormData (multipart for photo attachments).
+ * @param {Object|FormData} equipmentData
  * @param {string} token Bearer JWT Token
  * @returns {Promise<Object>} ApiResponse<EquipmentResponse>
  */
 export async function createEquipment(equipmentData, token) {
+  const isFormData = typeof FormData !== 'undefined' && equipmentData instanceof FormData;
+  const headers = {
+    'Authorization': `Bearer ${token}`,
+  };
+
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json';
+  }
+
   const response = await fetch(`${API_BASE_URL}/equipment`, {
     method: 'POST',
+    headers,
+    body: isFormData ? equipmentData : JSON.stringify(equipmentData),
+  });
+
+  return handleResponse(response);
+}
+
+/**
+ * Upload one or multiple photos to an existing equipment listing.
+ * @param {number|string} equipmentId
+ * @param {File[]|FileList|File} files
+ * @param {string} token Bearer JWT Token
+ * @returns {Promise<Object>} ApiResponse<EquipmentResponse>
+ */
+export async function uploadEquipmentPhotos(equipmentId, files, token) {
+  const formData = new FormData();
+  const fileArray = Array.isArray(files) ? files : Array.from(files);
+  fileArray.forEach((file) => {
+    formData.append('photos', file);
+  });
+
+  const response = await fetch(`${API_BASE_URL}/equipment/${equipmentId}/photos`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  return handleResponse(response);
+}
+
+/**
+ * Delete a specific photo from an equipment listing.
+ * @param {number|string} equipmentId
+ * @param {number|string} photoId
+ * @param {string} token Bearer JWT Token
+ * @returns {Promise<Object>} ApiResponse<EquipmentResponse>
+ */
+export async function deleteEquipmentPhoto(equipmentId, photoId, token) {
+  const response = await fetch(`${API_BASE_URL}/equipment/${equipmentId}/photos/${photoId}`, {
+    method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
     },
-    body: JSON.stringify(equipmentData),
+  });
+
+  return handleResponse(response);
+}
+
+/**
+ * Designate a photo as the primary cover photo for the listing.
+ * @param {number|string} equipmentId
+ * @param {number|string} photoId
+ * @param {string} token Bearer JWT Token
+ * @returns {Promise<Object>} ApiResponse<EquipmentResponse>
+ */
+export async function setPrimaryEquipmentPhoto(equipmentId, photoId, token) {
+  const response = await fetch(`${API_BASE_URL}/equipment/${equipmentId}/photos/${photoId}/primary`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
   });
 
   return handleResponse(response);
