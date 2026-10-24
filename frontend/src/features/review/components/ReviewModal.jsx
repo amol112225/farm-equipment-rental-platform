@@ -1,23 +1,18 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
+import { useLanguage } from '../../../context/LanguageContext';
 import { submitReview } from '../../../services/reviewService';
-
-const RATING_LABELS = {
-  1: '1 Star — Poor experience',
-  2: '2 Stars — Fair',
-  3: '3 Stars — Good / Satisfactory',
-  4: '4 Stars — Very Good',
-  5: '5 Stars — Excellent equipment & service!',
-};
 
 /**
  * ReviewModal Component
  * Interactive modal allowing renters to rate equipment owners on completed rentals.
+ * Fully translated and integrated with LanguageContext.
  */
 const ReviewModal = ({ isOpen, booking, onClose, onSuccess }) => {
   if (!isOpen || !booking) return null;
 
   const { token } = useAuth();
+  const { t } = useLanguage();
 
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
@@ -28,17 +23,25 @@ const ReviewModal = ({ isOpen, booking, onClose, onSuccess }) => {
 
   const activeRating = hoverRating || rating;
 
+  const ratingDescriptions = {
+    1: t('reviews.star1'),
+    2: t('reviews.star2'),
+    3: t('reviews.star3'),
+    4: t('reviews.star4'),
+    5: t('reviews.star5'),
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setValidationError('');
 
     if (!rating || rating < 1 || rating > 5) {
-      setValidationError('Please select a star rating (1 to 5 stars) before submitting.');
+      setValidationError(t('reviews.validationSelectStar'));
       return;
     }
 
     if (!token) {
-      setValidationError('You must be logged in to submit a review.');
+      setValidationError(t('reviews.validationLoginRequired'));
       return;
     }
 
@@ -66,7 +69,7 @@ const ReviewModal = ({ isOpen, booking, onClose, onSuccess }) => {
     } catch (err) {
       const msg = err.errors
         ? Object.values(err.errors).join(', ')
-        : err.message || 'Failed to submit review. Please try again.';
+        : err.message || t('reviews.noReviewsEquipment');
       setValidationError(msg);
       setIsSubmitting(false);
     }
@@ -87,8 +90,8 @@ const ReviewModal = ({ isOpen, booking, onClose, onSuccess }) => {
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="absolute top-4 right-4 text-emerald-100 hover:text-white p-1 rounded-full hover:bg-emerald-600/50 transition-colors disabled:opacity-50"
-            aria-label="Close modal"
+            className="absolute top-4 right-4 text-emerald-100 hover:text-white p-1 rounded-full hover:bg-emerald-600/50 transition-colors disabled:opacity-50 cursor-pointer"
+            aria-label={t('common.close')}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -96,10 +99,12 @@ const ReviewModal = ({ isOpen, booking, onClose, onSuccess }) => {
           </button>
           <div className="flex items-center space-x-2">
             <span className="text-xl">⭐</span>
-            <h2 className="text-xl font-bold tracking-tight">Rate Equipment & Owner</h2>
+            <h2 className="text-xl font-bold tracking-tight">{t('reviews.rateEquipmentAndOwner')}</h2>
           </div>
           <p className="text-xs text-emerald-100 mt-1">
-            How was your rental experience for {booking.equipmentName || `booking #${booking.id}`}?
+            {t('reviews.modalSubtitle', {
+              equipment: booking.equipmentName || `#${booking.id}`,
+            })}
           </p>
         </div>
 
@@ -110,11 +115,14 @@ const ReviewModal = ({ isOpen, booking, onClose, onSuccess }) => {
             <div>
               <p className="font-bold text-slate-800 text-sm">{booking.equipmentName}</p>
               <p className="text-slate-500 mt-0.5">
-                Owner: <span className="font-semibold text-slate-700">{booking.ownerName || 'Equipment Owner'}</span>
+                {t('reviews.ownerLabel')}{' '}
+                <span className="font-semibold text-slate-700">
+                  {booking.ownerName || t('equipment.verifiedEquipmentOwner')}
+                </span>
               </p>
             </div>
             <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[11px]">
-              Completed Rental
+              {t('reviews.completedRentalBadge')}
             </span>
           </div>
 
@@ -122,7 +130,7 @@ const ReviewModal = ({ isOpen, booking, onClose, onSuccess }) => {
           {submitSuccess && (
             <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-xl text-emerald-800 text-sm font-semibold flex items-center space-x-2 animate-in fade-in">
               <span>🎉</span>
-              <span>Thank you! Your rating and feedback have been submitted successfully.</span>
+              <span>{t('reviews.submitSuccess')}</span>
             </div>
           )}
 
@@ -137,7 +145,7 @@ const ReviewModal = ({ isOpen, booking, onClose, onSuccess }) => {
           {/* 1. Star Rating Selection */}
           <div className="space-y-2 text-center py-2">
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-              Rating <span className="text-red-500">*</span>
+              {t('reviews.ratingLabel')}
             </label>
 
             <div
@@ -150,78 +158,70 @@ const ReviewModal = ({ isOpen, booking, onClose, onSuccess }) => {
                   <button
                     key={star}
                     type="button"
-                    disabled={isSubmitting || submitSuccess}
-                    onClick={() => {
-                      setRating(star);
-                      setValidationError('');
-                    }}
+                    onClick={() => setRating(star)}
                     onMouseEnter={() => setHoverRating(star)}
-                    className="p-1 text-3xl sm:text-4xl transition-transform hover:scale-115 focus:outline-hidden disabled:cursor-not-allowed"
-                    aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
+                    className="p-1.5 focus:outline-none transition-transform hover:scale-125 cursor-pointer"
+                    aria-label={`${star} Star`}
                   >
-                    <span
-                      className={`transition-colors ${
-                        isFilled ? 'text-amber-400 drop-shadow-xs' : 'text-slate-300'
+                    <svg
+                      className={`w-9 h-9 transition-colors ${
+                        isFilled ? 'text-amber-400 fill-amber-400' : 'text-slate-300 fill-transparent'
                       }`}
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      viewBox="0 0 24 24"
                     >
-                      ★
-                    </span>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
+                      />
+                    </svg>
                   </button>
                 );
               })}
             </div>
 
-            {/* Rating Description Label */}
-            <p className="text-xs font-semibold h-4 text-slate-600 transition-opacity">
-              {activeRating ? RATING_LABELS[activeRating] : 'Select from 1 to 5 stars'}
+            {/* Dynamic Label for Hovered/Selected Star */}
+            <p className="text-xs font-semibold text-slate-600 min-h-[1.25rem]">
+              {activeRating > 0 ? ratingDescriptions[activeRating] : ''}
             </p>
           </div>
 
-          {/* 2. Written Feedback (Optional) */}
+          {/* 2. Feedback Textarea */}
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="review-feedback" className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                Written Feedback <span className="text-slate-400 font-normal lowercase">(optional)</span>
-              </label>
-              <span className="text-[11px] text-slate-400">
-                {feedback.length}/1000
-              </span>
-            </div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+              {t('reviews.feedbackLabel')}
+            </label>
             <textarea
-              id="review-feedback"
               rows="3"
               maxLength={1000}
-              disabled={isSubmitting || submitSuccess}
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
-              placeholder="How was the equipment condition? Was handover on time? Share any helpful details for other farmers..."
-              className="w-full px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-hidden transition-all placeholder:text-slate-400 resize-none"
-            />
+              placeholder={t('reviews.feedbackPlaceholder')}
+              className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-slate-900 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+            ></textarea>
+            <p className="text-[11px] text-slate-400 text-right">
+              {feedback.length}/1000
+            </p>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+          {/* Modal Actions */}
+          <div className="pt-2 flex items-center justify-end space-x-3 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
-              disabled={isSubmitting || submitSuccess}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors disabled:opacity-50"
+              disabled={isSubmitting}
+              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50 cursor-pointer"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={isSubmitting || submitSuccess}
-              className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition-colors flex items-center space-x-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors disabled:opacity-50 flex items-center space-x-1.5 cursor-pointer"
             >
-              {isSubmitting ? (
-                <>
-                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Submitting...</span>
-                </>
-              ) : (
-                <span>Submit Review</span>
-              )}
+              <span>{isSubmitting ? t('reviews.submitting') : t('reviews.submitReview')}</span>
             </button>
           </div>
         </form>

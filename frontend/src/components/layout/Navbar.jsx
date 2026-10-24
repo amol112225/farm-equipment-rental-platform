@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import logo from '../../assets/images/agro-rent-logo.png';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import AuthModal from '../../features/auth/components/AuthModal';
 
 /**
  * Navbar component for the Farm Equipment Rental Platform.
- * Integrated with AuthContext, AuthModal, Equipment Management, and My Bookings modal triggers.
+ * Integrated with AuthContext, LanguageContext (multilingual selector),
+ * and Dashboard navigation triggers.
  */
 const Navbar = ({ onOpenMyBookings, onOpenOwnerDashboard, onNavigateToHome, currentPage = 'home' }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -13,6 +15,7 @@ const Navbar = ({ onOpenMyBookings, onOpenOwnerDashboard, onNavigateToHome, curr
   const [authModalMode, setAuthModalMode] = useState('login');
 
   const { currentFarmer, isAuthenticated, logout } = useAuth();
+  const { language, changeLanguage, t, supportedLanguages } = useLanguage();
 
   const openAuth = (mode = 'login') => {
     setAuthModalMode(mode);
@@ -74,13 +77,13 @@ const Navbar = ({ onOpenMyBookings, onOpenOwnerDashboard, onNavigateToHome, curr
                     Agri<span className="text-emerald-600">Rent</span>
                   </span>
                   <span className="text-xs font-medium text-slate-500 tracking-wider uppercase">
-                    Farm Equipment Rental
+                    {t('common.tagline')}
                   </span>
                 </div>
               </a>
             </div>
 
-            {/* 2. Middle: My Bookings & Owner Dashboard Links */}
+            {/* 2. Middle: Rental Dashboard & Owner Dashboard Links */}
             <div className="hidden md:flex items-center space-x-3">
               <button
                 type="button"
@@ -90,7 +93,7 @@ const Navbar = ({ onOpenMyBookings, onOpenOwnerDashboard, onNavigateToHome, curr
                   : 'text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/60'
                   }`}
               >
-                Rental Dashboard
+                {t('nav.rentalDashboard')}
               </button>
 
               <button
@@ -101,12 +104,30 @@ const Navbar = ({ onOpenMyBookings, onOpenOwnerDashboard, onNavigateToHome, curr
                   : 'text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/60'
                   }`}
               >
-                Owner Dashboard
+                {t('nav.ownerDashboard')}
               </button>
             </div>
 
-            {/* 3. Right side: Login / Register & Farmer Profile Actions */}
+            {/* 3. Right side: Language Selector + Login / Register / Farmer Profile Actions */}
             <div className="hidden md:flex items-center space-x-3">
+              {/* Desktop Language Selector */}
+              <div className="flex items-center space-x-1.5 border border-slate-300 rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-700 text-xs font-semibold focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 hover:bg-slate-100 transition-colors">
+                <span className="text-sm">🌐</span>
+                <select
+                  id="language-selector-desktop"
+                  value={language}
+                  onChange={(e) => changeLanguage(e.target.value)}
+                  aria-label={t('nav.selectLanguage')}
+                  className="bg-transparent border-none text-xs font-bold text-slate-800 focus:outline-none cursor-pointer pr-1"
+                >
+                  {supportedLanguages.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.nativeLabel}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {isAuthenticated && currentFarmer ? (
                 <div className="flex items-center space-x-3">
                   <div className="px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 flex items-center space-x-1.5">
@@ -119,7 +140,7 @@ const Navbar = ({ onOpenMyBookings, onOpenOwnerDashboard, onNavigateToHome, curr
                     onClick={logout}
                     className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-red-700 border border-slate-300 hover:border-red-400 rounded-lg transition-colors"
                   >
-                    Log Out
+                    {t('nav.logOut')}
                   </button>
                 </div>
               ) : (
@@ -129,27 +150,42 @@ const Navbar = ({ onOpenMyBookings, onOpenOwnerDashboard, onNavigateToHome, curr
                     onClick={() => openAuth('login')}
                     className="px-4 py-2 text-sm font-semibold text-slate-700 hover:text-emerald-700 border border-slate-300 hover:border-emerald-600 rounded-lg transition-all duration-200 hover:bg-emerald-50/50"
                   >
-                    Log In
+                    {t('nav.logIn')}
                   </button>
                   <button
                     type="button"
                     onClick={() => openAuth('register')}
                     className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs hover:shadow-sm transition-all duration-200"
                   >
-                    Register
+                    {t('nav.register')}
                   </button>
                 </div>
               )}
             </div>
 
             {/* Mobile Hamburger Menu Button */}
-            <div className="flex md:hidden items-center">
+            <div className="flex md:hidden items-center space-x-2">
+              {/* Mobile Quick Language Toggle */}
+              <select
+                id="language-selector-mobile-quick"
+                value={language}
+                onChange={(e) => changeLanguage(e.target.value)}
+                aria-label={t('nav.selectLanguage')}
+                className="bg-slate-100 border border-slate-300 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
+              >
+                {supportedLanguages.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.nativeLabel}
+                  </option>
+                ))}
+              </select>
+
               <button
                 type="button"
                 onClick={toggleMobileMenu}
                 className="p-2 rounded-lg text-slate-600 hover:text-emerald-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
                 aria-expanded={isMobileMenuOpen}
-                aria-label="Toggle navigation menu"
+                aria-label={t('nav.toggleMenu')}
               >
                 {isMobileMenuOpen ? (
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -169,6 +205,29 @@ const Navbar = ({ onOpenMyBookings, onOpenOwnerDashboard, onNavigateToHome, curr
         {/* Mobile Menu Drawer */}
         {isMobileMenuOpen && (
           <div className="md:hidden bg-white border-b border-slate-200 px-4 pt-2 pb-4 space-y-3 shadow-lg">
+            {/* Language Selection in Mobile Drawer */}
+            <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+              <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <span>🌐</span>
+                <span>{t('nav.selectLanguage')}</span>
+              </span>
+              <div className="flex items-center space-x-1.5">
+                {supportedLanguages.map((lang) => (
+                  <button
+                    key={lang.code}
+                    type="button"
+                    onClick={() => changeLanguage(lang.code)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${language === lang.code
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                      }`}
+                  >
+                    {lang.nativeLabel}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="flex flex-col space-y-2">
               <button
                 type="button"
@@ -178,7 +237,7 @@ const Navbar = ({ onOpenMyBookings, onOpenOwnerDashboard, onNavigateToHome, curr
                   : 'text-slate-800 hover:bg-emerald-50'
                   }`}
               >
-                My Bookings
+                {t('nav.myBookings')}
               </button>
               <button
                 type="button"
@@ -188,16 +247,15 @@ const Navbar = ({ onOpenMyBookings, onOpenOwnerDashboard, onNavigateToHome, curr
                   : 'text-slate-800 hover:bg-emerald-50'
                   }`}
               >
-                Owner Dashboard
+                {t('nav.ownerDashboard')}
               </button>
-
             </div>
 
             <div className="pt-3 border-t border-slate-200 flex flex-col space-y-2">
               {isAuthenticated && currentFarmer ? (
                 <div className="flex flex-col space-y-2">
                   <div className="px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-100 rounded-lg">
-                    Logged in as: <strong>{currentFarmer.fullName}</strong>
+                    {t('nav.loggedInAs')} <strong>{currentFarmer.fullName}</strong>
                   </div>
                   <button
                     type="button"
@@ -207,7 +265,7 @@ const Navbar = ({ onOpenMyBookings, onOpenOwnerDashboard, onNavigateToHome, curr
                     }}
                     className="w-full text-center px-4 py-2 text-sm font-semibold text-red-600 border border-red-200 rounded-lg hover:bg-red-50"
                   >
-                    Log Out
+                    {t('nav.logOut')}
                   </button>
                 </div>
               ) : (
@@ -220,7 +278,7 @@ const Navbar = ({ onOpenMyBookings, onOpenOwnerDashboard, onNavigateToHome, curr
                     }}
                     className="w-full text-center px-4 py-2.5 text-sm font-semibold text-slate-700 border border-slate-300 hover:border-emerald-600 hover:text-emerald-700 rounded-lg transition-colors"
                   >
-                    Log In
+                    {t('nav.logIn')}
                   </button>
                   <button
                     type="button"
@@ -230,7 +288,7 @@ const Navbar = ({ onOpenMyBookings, onOpenOwnerDashboard, onNavigateToHome, curr
                     }}
                     className="w-full text-center px-4 py-2.5 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition-colors"
                   >
-                    Register
+                    {t('nav.register')}
                   </button>
                 </div>
               )}

@@ -3,6 +3,7 @@ import Home from './pages/Home';
 import OwnerDashboard from './pages/OwnerDashboard';
 import RenterDashboard from './pages/RenterDashboard';
 import { AuthProvider } from './context/AuthContext';
+import { LanguageProvider } from './context/LanguageContext';
 import './App.css';
 
 /**
@@ -52,26 +53,28 @@ function App() {
   };
 
   return (
-    <AuthProvider>
-      <div className="App">
-        {currentPage === 'owner-dashboard' ? (
-          <OwnerDashboard
-            onNavigateToHome={navigateToHome}
-            onNavigateToMyBookings={navigateToMyBookings}
-          />
-        ) : currentPage === 'my-bookings' ? (
-          <RenterDashboard
-            onNavigateToHome={navigateToHome}
-            onNavigateToOwnerDashboard={navigateToOwnerDashboard}
-          />
-        ) : (
-          <Home
-            onNavigateToOwnerDashboard={navigateToOwnerDashboard}
-            onNavigateToMyBookings={navigateToMyBookings}
-          />
-        )}
-      </div>
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <div className="App">
+          {currentPage === 'owner-dashboard' ? (
+            <OwnerDashboard
+              onNavigateToHome={navigateToHome}
+              onNavigateToMyBookings={navigateToMyBookings}
+            />
+          ) : currentPage === 'my-bookings' ? (
+            <RenterDashboard
+              onNavigateToHome={navigateToHome}
+              onNavigateToOwnerDashboard={navigateToOwnerDashboard}
+            />
+          ) : (
+            <Home
+              onNavigateToOwnerDashboard={navigateToOwnerDashboard}
+              onNavigateToMyBookings={navigateToMyBookings}
+            />
+          )}
+        </div>
+      </AuthProvider>
+    </LanguageProvider>
   );
 }
 

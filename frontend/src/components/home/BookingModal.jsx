@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { createBooking } from '../../services/bookingService';
 import { fetchEquipmentRatingSummary, fetchEquipmentReviews } from '../../services/reviewService';
 import { resolveImageUrl } from '../../services/equipmentService';
@@ -7,12 +8,11 @@ import { resolveImageUrl } from '../../services/equipmentService';
 /**
  * BookingModal Component
  * Connected to Spring Boot REST API for creating real equipment rental bookings.
- * Displays equipment ratings and reviews.
+ * Displays equipment ratings, reviews, and multilingual support.
  */
 const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfirm }) => {
-  if (!equipment) return null;
-
   const { token, isAuthenticated } = useAuth();
+  const { t, formatCurrency, formatDate, formatNumber, getCategoryLabel } = useLanguage();
 
   // Helper to format local Date for datetime-local input (YYYY-MM-DDTHH:mm)
   const getInitialLocalDateTime = () => {
@@ -49,10 +49,13 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
   const [isLoadingReviews, setIsLoadingReviews] = useState(false);
   const [reviewsError, setReviewsError] = useState('');
 
-  const priceUnit = equipment.priceUnit?.toLowerCase() === 'day' ? 'day' : 'hour';
-  const totalPrice = (equipment.price || 0) * Math.max(1, hoursOrDays);
+  const isDayUnit = equipment?.priceUnit?.toLowerCase() === 'day';
+  const unitSingle = isDayUnit ? t('common.day') : t('common.hour');
+  const unitPlural = isDayUnit ? t('common.days') : t('common.hours');
+  const normalizedShortUnit = isDayUnit ? t('common.unitDay') : t('common.unitHour');
+  const totalPrice = (equipment?.price || 0) * Math.max(1, hoursOrDays);
 
-  const isBothType = equipment.bookingType?.toLowerCase() === 'both';
+  const isBothType = equipment?.bookingType?.toLowerCase() === 'both';
 
   const loadEquipmentReviews = async (targetId) => {
     const equipId = targetId || equipment?.id;
@@ -63,7 +66,7 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
       const res = await fetchEquipmentReviews(equipId);
       setEquipmentReviews(res?.data || []);
     } catch (err) {
-      setReviewsError(err.message || 'Failed to load equipment reviews. Please try again.');
+      setReviewsError(err.message || t('reviews.noReviewsEquipment'));
     } finally {
       setIsLoadingReviews(false);
     }
@@ -148,12 +151,12 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
     setGeneralError('');
 
     if (!isAuthenticated || !token) {
-      setGeneralError('Please log in to your farmer account to book equipment.');
+      setGeneralError(t('booking.loginRequiredToBook'));
       return;
     }
 
     if (!startDateTime) {
-      setGeneralError('Please select a valid start date and time.');
+      setGeneralError(t('booking.selectValidDateTime'));
       return;
     }
 
@@ -183,9 +186,11 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
       onClose();
     } catch (err) {
       setIsSubmitting(false);
-      setGeneralError(err.message || 'Failed to submit booking request. Please try again.');
+      setGeneralError(err.message || t('booking.failedToSubmit'));
     }
   };
+
+  if (!equipment) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">
@@ -217,7 +222,7 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent flex items-end p-5">
             <div>
               <span className="bg-emerald-500 text-white text-xs font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                {equipment.category || 'Farm Equipment'}
+                {equipment.category ? getCategoryLabel(equipment.category) : t('equipment.name')}
               </span>
               <h3 className="text-xl sm:text-2xl font-bold text-white mt-1">
                 {equipment.name}
@@ -227,8 +232,8 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-3 right-3 bg-slate-900/60 text-white hover:bg-slate-900 p-2 rounded-full transition-colors z-10"
-            aria-label="Close modal"
+            className="absolute top-3 right-3 bg-slate-900/60 text-white hover:bg-slate-900 p-2 rounded-full transition-colors z-10 cursor-pointer"
+            aria-label={t('booking.closeModal')}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -240,7 +245,7 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
         {photosList.length > 1 && (
           <div className="px-5 py-2.5 bg-slate-900 flex items-center gap-2 overflow-x-auto shrink-0">
             <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mr-1 shrink-0">
-              Photos ({photosList.length}):
+              {t('equipment.photosCountShort', { count: photosList.length })}
             </span>
             {photosList.map((photoUrl, idx) => (
               <button
@@ -277,14 +282,14 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
 
           <div className="flex justify-between items-center bg-emerald-50/70 p-3.5 rounded-xl border border-emerald-100">
             <div>
-              <p className="text-xs font-semibold text-emerald-800 uppercase tracking-wide">Rental Rate</p>
+              <p className="text-xs font-semibold text-emerald-800 uppercase tracking-wide">{t('booking.rentalRate')}</p>
               <p className="text-lg font-bold text-emerald-700">
-                ₹{equipment.price ? equipment.price.toLocaleString('en-IN') : '0'}{' '}
-                <span className="text-xs font-normal text-slate-600">/ {priceUnit}</span>
+                {formatCurrency(equipment.price || 0)}{' '}
+                <span className="text-xs font-normal text-slate-600">/ {normalizedShortUnit}</span>
               </p>
             </div>
             <div className="text-right">
-              <p className="text-xs font-semibold text-slate-500">Location</p>
+              <p className="text-xs font-semibold text-slate-500">{t('equipment.location')}</p>
               <p className="text-sm font-bold text-slate-700">📍 {equipment.distance || equipment.location}</p>
             </div>
           </div>
@@ -293,8 +298,8 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
           <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs space-y-2">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-500 font-medium">Equipment Owner</p>
-                <p className="font-bold text-slate-800 text-sm">{equipment.ownerName || 'Verified Equipment Owner'}</p>
+                <p className="text-slate-500 font-medium">{t('booking.owner')}</p>
+                <p className="font-bold text-slate-800 text-sm">{equipment.ownerName || t('equipment.verifiedEquipmentOwner')}</p>
               </div>
 
               <div className="text-right">
@@ -302,18 +307,19 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
                   type="button"
                   onClick={handleToggleReviews}
                   className="inline-flex items-center gap-1.5 font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
-                  title="Click to view equipment reviews"
+                  title={t('equipment.clickToViewReviews')}
                 >
                   <span>⭐</span>
                   {equipmentRating && equipmentRating.totalReviews > 0 ? (
                     <>
                       <span>{equipmentRating.averageRating.toFixed(1)}</span>
                       <span className="text-amber-800 font-normal">
-                        ({equipmentRating.totalReviews} review{equipmentRating.totalReviews > 1 ? 's' : ''})
+                        ({formatNumber(equipmentRating.totalReviews)}{' '}
+                        {equipmentRating.totalReviews === 1 ? t('equipment.reviewSingle') : t('equipment.reviewPlural')})
                       </span>
                     </>
                   ) : (
-                    <span>No ratings yet</span>
+                    <span>{t('equipment.noRatingsYet')}</span>
                   )}
                 </button>
               </div>
@@ -323,20 +329,20 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
             {showReviews && (
               <div className="pt-2 border-t border-slate-200 mt-2 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-700">Recent Equipment Reviews</span>
+                  <span className="font-bold text-slate-700">{t('reviews.recentReviews')}</span>
                   <button
                     type="button"
                     onClick={handleToggleReviews}
-                    className="text-emerald-700 hover:underline font-semibold text-[11px]"
+                    className="text-emerald-700 hover:underline font-semibold text-[11px] cursor-pointer"
                   >
-                    Hide Reviews
+                    {t('reviews.hideReviews')}
                   </button>
                 </div>
 
                 {isLoadingReviews ? (
                   <div className="py-3 text-center text-slate-500 flex items-center justify-center space-x-2">
                     <div className="animate-spin inline-block w-4 h-4 border-2 border-emerald-600 border-t-transparent rounded-full" />
-                    <span>Loading reviews...</span>
+                    <span>{t('reviews.loadingReviews')}</span>
                   </div>
                 ) : reviewsError ? (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-center space-y-2">
@@ -346,12 +352,12 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
                       onClick={() => loadEquipmentReviews(equipment?.id)}
                       className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[11px] font-semibold transition-colors cursor-pointer"
                     >
-                      Retry
+                      {t('common.retry')}
                     </button>
                   </div>
                 ) : equipmentReviews.length === 0 ? (
                   <div className="py-3 text-slate-500 text-center italic text-xs">
-                    No reviews yet for this equipment.
+                    {t('reviews.noReviewsEquipment')}
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
@@ -364,7 +370,7 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
                             <span className="text-slate-700 font-semibold ml-1.5">{rev.reviewerName}</span>
                           </div>
                           <span className="text-[10px] text-slate-400">
-                            {rev.createdAt ? new Date(rev.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}
+                            {rev.createdAt ? formatDate(rev.createdAt) : ''}
                           </span>
                         </div>
                         {rev.feedback && (
@@ -382,7 +388,7 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
           {isBothType && (
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Select Booking Preference *
+                {t('booking.selectBookingPreference')}
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <label
@@ -401,9 +407,9 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
                       onChange={() => setBookingMode('instant')}
                       className="text-emerald-600 focus:ring-emerald-500"
                     />
-                    <span className="text-xs">⚡ Instant Booking</span>
+                    <span className="text-xs">{t('booking.instantBookingBadge')}</span>
                   </div>
-                  <span className="text-[11px] font-normal text-slate-500 mt-1">Instant confirmation</span>
+                  <span className="text-[11px] font-normal text-slate-500 mt-1">{t('booking.instantBookingDesc')}</span>
                 </label>
 
                 <label
@@ -422,9 +428,9 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
                       onChange={() => setBookingMode('request')}
                       className="text-amber-600 focus:ring-amber-500"
                     />
-                    <span className="text-xs">📝 Request Approval</span>
+                    <span className="text-xs">{t('booking.requestApprovalBadge')}</span>
                   </div>
-                  <span className="text-[11px] font-normal text-slate-500 mt-1">Owner manual review</span>
+                  <span className="text-[11px] font-normal text-slate-500 mt-1">{t('booking.requestApprovalDesc')}</span>
                 </label>
               </div>
             </div>
@@ -433,7 +439,7 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
           {/* Datetime-local Picker */}
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-              Requested Start Date & Time *
+              {t('booking.startDateAndTime')}
             </label>
             <input
               type="datetime-local"
@@ -448,13 +454,13 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
           {/* Duration Counter */}
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-              Rental Duration ({priceUnit}s) *
+              {t('booking.rentalDuration', { unit: unitSingle })}
             </label>
             <div className="flex items-center space-x-3">
               <button
                 type="button"
                 onClick={() => setHoursOrDays((prev) => Math.max(1, prev - 1))}
-                className="w-10 h-10 rounded-xl border border-slate-300 flex items-center justify-center text-slate-700 font-bold hover:bg-slate-100 transition-colors"
+                className="w-10 h-10 rounded-xl border border-slate-300 flex items-center justify-center text-slate-700 font-bold hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 -
               </button>
@@ -469,12 +475,15 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
               <button
                 type="button"
                 onClick={() => setHoursOrDays((prev) => prev + 1)}
-                className="w-10 h-10 rounded-xl border border-slate-300 flex items-center justify-center text-slate-700 font-bold hover:bg-slate-100 transition-colors"
+                className="w-10 h-10 rounded-xl border border-slate-300 flex items-center justify-center text-slate-700 font-bold hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 +
               </button>
               <span className="text-sm text-slate-600 font-medium">
-                Total {hoursOrDays} {priceUnit}{hoursOrDays > 1 ? 's' : ''}
+                {t('booking.totalDuration', {
+                  count: formatNumber(hoursOrDays),
+                  unit: hoursOrDays > 1 ? unitPlural : unitSingle,
+                })}
               </span>
             </div>
           </div>
@@ -482,14 +491,14 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
           {/* Special Requirements / Notes */}
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-              Field Notes / Operator Request (Optional)
+              {t('booking.fieldNotesLabel')}
             </label>
             <textarea
               rows="2"
               maxLength={1000}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Specify farm location details or operator requirements..."
+              placeholder={t('booking.fieldNotesPlaceholder')}
               className="w-full px-3.5 py-2 border border-slate-300 rounded-xl text-slate-900 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
             ></textarea>
           </div>
@@ -497,29 +506,29 @@ const BookingModal = ({ equipment, initialShowReviews = false, onClose, onConfir
           {/* Price Calculation Summary */}
           <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-500 font-medium">Total Estimated Cost</p>
+              <p className="text-xs text-slate-500 font-medium">{t('booking.totalEstimatedCost')}</p>
               <p className="text-2xl font-black text-slate-900">
-                ₹{totalPrice.toLocaleString('en-IN')}
+                {formatCurrency(totalPrice)}
               </p>
             </div>
             <div className="flex space-x-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors"
+                className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors cursor-pointer"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-md hover:shadow-lg transition-all flex items-center space-x-2 disabled:opacity-50"
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-md hover:shadow-lg transition-all flex items-center space-x-2 disabled:opacity-50 cursor-pointer"
               >
                 {isSubmitting ? (
-                  <span>Submitting...</span>
+                  <span>{t('booking.submittingBooking')}</span>
                 ) : (
                   <>
-                    <span>Confirm Booking</span>
+                    <span>{t('booking.confirmBooking')}</span>
                     <span>→</span>
                   </>
                 )}

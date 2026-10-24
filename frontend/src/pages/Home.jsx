@@ -7,20 +7,18 @@ import AddEquipmentModal from '../features/equipment/components/AddEquipmentModa
 import MyEquipmentModal from '../features/equipment/components/MyEquipmentModal';
 import MyBookingsModal from '../features/booking/components/MyBookingsModal';
 import OwnerDashboardModal from '../features/dashboard/components/OwnerDashboardModal';
-import { fetchPublicEquipment, resolveImageUrl } from '../services/equipmentService';
+import { fetchPublicEquipment } from '../services/equipmentService';
 import { useAuth } from '../context/AuthContext';
-
-// Default fallback image for listings without a custom image URL
-const DEFAULT_FALLBACK_IMAGE =
-  'https://images.unsplash.com/photo-1592861956120-e524fc739696?auto=format&fit=crop&w=600&q=80';
+import { useLanguage } from '../context/LanguageContext';
 
 /**
  * Home Page Component for AgroRent Platform
  * Integrated with Spring Boot REST API for public equipment browsing,
- * rental booking creation, equipment management, and booking history modals.
+ * rental booking creation, equipment management, and multilingual translations.
  */
 const Home = ({ onNavigateToOwnerDashboard, onNavigateToMyBookings }) => {
   const { isAuthenticated } = useAuth();
+  const { t } = useLanguage();
 
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('');
@@ -56,11 +54,11 @@ const Home = ({ onNavigateToOwnerDashboard, onNavigateToMyBookings }) => {
       });
       setEquipmentList(response.data || []);
     } catch (err) {
-      setApiError(err.message || 'Unable to connect to AgroRent backend server.');
+      setApiError(err.message || t('common.serverError'));
     } finally {
       setIsLoading(false);
     }
-  }, [searchTerm, activeCategory, locationSearch]);
+  }, [searchTerm, activeCategory, locationSearch, t]);
 
   // Debounced API fetch when search filters change
   useEffect(() => {
@@ -88,15 +86,6 @@ const Home = ({ onNavigateToOwnerDashboard, onNavigateToMyBookings }) => {
     setActiveCategory('All Categories');
   };
 
-  const handleNavClick = (navItem) => {
-    if (!navItem.implemented) {
-      setUnimplementedNotice(
-        `Note: "${navItem.label}" page navigation will be enabled in upcoming releases.`
-      );
-      setTimeout(() => setUnimplementedNotice(null), 4000);
-    }
-  };
-
   const handleBookingConfirm = (createdBooking) => {
     setSelectedEquipment(null);
     setInitialShowReviews(false);
@@ -105,11 +94,11 @@ const Home = ({ onNavigateToOwnerDashboard, onNavigateToMyBookings }) => {
 
     let msg;
     if (status === 'APPROVED') {
-      msg = `🎉 Booking ${bookingId} confirmed! Your rental has been instantly approved.`;
+      msg = t('home.bookingApprovedToast', { id: bookingId });
     } else if (status === 'PENDING') {
-      msg = `⏳ Booking ${bookingId} request submitted! Awaiting owner decision.`;
+      msg = t('home.bookingPendingToast', { id: bookingId });
     } else {
-      msg = `Booking ${bookingId} submitted successfully!`;
+      msg = t('home.bookingSubmittedToast', { id: bookingId });
     }
 
     setToastMessage(msg);
@@ -119,7 +108,7 @@ const Home = ({ onNavigateToOwnerDashboard, onNavigateToMyBookings }) => {
   };
 
   const handleListingCreated = (message) => {
-    setToastMessage(message || 'Equipment listing created successfully!');
+    setToastMessage(message || t('home.listingCreatedSuccess'));
     setTimeout(() => setToastMessage(null), 5000);
     loadEquipment();
   };
@@ -133,7 +122,7 @@ const Home = ({ onNavigateToOwnerDashboard, onNavigateToMyBookings }) => {
     if (isAuthenticated) {
       setIsAddModalOpen(true);
     } else {
-      setUnimplementedNotice('Please log in to your farmer account to list equipment.');
+      setUnimplementedNotice(t('home.loginRequiredToList'));
       setTimeout(() => setUnimplementedNotice(null), 4000);
     }
   };
@@ -162,7 +151,7 @@ const Home = ({ onNavigateToOwnerDashboard, onNavigateToMyBookings }) => {
         </div>
       )}
 
-      {/* Main Search & Location Selection (Area 1 & Area 2) */}
+      {/* Main Search & Location Selection */}
       <HomeSearch
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
@@ -178,7 +167,7 @@ const Home = ({ onNavigateToOwnerDashboard, onNavigateToMyBookings }) => {
         <section className="space-y-6">
           <div className="border-b border-slate-200 pb-4">
             <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
-              All Equipment
+              {t('home.allEquipmentHeading')}
             </h2>
           </div>
 
@@ -186,20 +175,20 @@ const Home = ({ onNavigateToOwnerDashboard, onNavigateToMyBookings }) => {
           {isLoading ? (
             <div className="py-16 text-center text-slate-500 space-y-3">
               <div className="animate-spin inline-block w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full"></div>
-              <p className="text-sm font-medium">Fetching available equipment from AgroRent backend...</p>
+              <p className="text-sm font-medium">{t('home.fetchingEquipment')}</p>
             </div>
           ) : apiError ? (
             /* API Error Banner */
             <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center max-w-lg mx-auto space-y-3">
               <div className="text-3xl">⚠️</div>
-              <h3 className="text-base font-bold text-red-900">Backend Server Connection Error</h3>
+              <h3 className="text-base font-bold text-red-900">{t('home.connectionError')}</h3>
               <p className="text-xs text-red-700">{apiError}</p>
               <button
                 type="button"
                 onClick={loadEquipment}
-                className="inline-flex items-center px-4 py-2 bg-red-600 text-white font-semibold text-xs rounded-xl hover:bg-red-700 transition-colors"
+                className="inline-flex items-center px-4 py-2 bg-red-600 text-white font-semibold text-xs rounded-xl hover:bg-red-700 transition-colors cursor-pointer"
               >
-                Retry Connecting
+                {t('home.retryConnecting')}
               </button>
             </div>
           ) : equipmentList.length > 0 ? (
@@ -233,15 +222,15 @@ const Home = ({ onNavigateToOwnerDashboard, onNavigateToMyBookings }) => {
             /* Empty State */
             <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center max-w-md mx-auto space-y-3">
               <div className="text-3xl">🌾</div>
-              <h3 className="text-base font-bold text-slate-900">No equipment found</h3>
+              <h3 className="text-base font-bold text-slate-900">{t('home.noEquipmentFound')}</h3>
               <p className="text-xs text-slate-500">
-                No machinery matched your active keyword or location filter. Try adjusting your search query.
+                {t('home.noEquipmentFoundDesc')}
               </p>
               <button
                 onClick={handleResetFilters}
-                className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white font-semibold text-xs rounded-xl hover:bg-emerald-700 transition-colors"
+                className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white font-semibold text-xs rounded-xl hover:bg-emerald-700 transition-colors cursor-pointer"
               >
-                Clear All Filters
+                {t('home.clearAllFilters')}
               </button>
             </div>
           )}
@@ -290,10 +279,10 @@ const Home = ({ onNavigateToOwnerDashboard, onNavigateToMyBookings }) => {
       {/* Footer */}
       <footer className="bg-slate-900 text-slate-400 py-8 px-4 border-t border-slate-800 mt-12">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs sm:text-sm">
-          <p>© {new Date().getFullYear()} AgroRent - Farmer Equipment Rental Platform. All rights reserved.</p>
+          <p>{t('home.footerCopyright', { year: new Date().getFullYear() })}</p>
           <div className="flex space-x-6">
-            <a href="#home" className="hover:text-white transition-colors">Home</a>
-            <a href="#browse" className="hover:text-white transition-colors">Browse Equipment</a>
+            <a href="#home" className="hover:text-white transition-colors">{t('home.footerHome')}</a>
+            <a href="#browse" className="hover:text-white transition-colors">{t('home.footerBrowse')}</a>
           </div>
         </div>
       </footer>

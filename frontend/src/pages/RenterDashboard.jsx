@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Navbar from '../components/layout/Navbar';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { fetchMyBookings, cancelBooking } from '../services/bookingService';
 import { fetchMyReviewedBookingIds, checkReviewEligibility } from '../services/reviewService';
 import { resolveImageUrl } from '../services/equipmentService';
 import ReviewModal from '../features/review/components/ReviewModal';
-
-const DEFAULT_FALLBACK_IMAGE =
-  'https://images.unsplash.com/photo-1592861956120-e524fc739696?auto=format&fit=crop&w=600&q=80';
 
 /**
  * Dedicated Renter Dashboard Page Component
@@ -16,6 +14,14 @@ const DEFAULT_FALLBACK_IMAGE =
  */
 const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
   const { token, isAuthenticated } = useAuth();
+  const {
+    t,
+    formatDateTime,
+    formatNumber,
+    getBookingStatusLabel,
+    getCategoryLabel,
+    locale,
+  } = useLanguage();
 
   // Active Tab: 'all' | 'upcoming' | 'history' | 'spending'
   const [activeTab, setActiveTab] = useState('all');
@@ -117,7 +123,7 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
       if (b.startDateTime) {
         try {
           const d = new Date(b.startDateTime);
-          monthYear = d.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+          monthYear = d.toLocaleString(locale || 'en-IN', { month: 'long', year: 'numeric' });
         } catch (e) {
           monthYear = 'Undated';
         }
@@ -130,7 +136,7 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
       groups[monthYear].items.push(b);
     });
     return Object.values(groups);
-  }, [completedBookings]);
+  }, [completedBookings, locale]);
 
   // Cancellation Handler
   const handleCancelBooking = async (bookingId) => {
@@ -141,10 +147,10 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
       const response = await cancelBooking(bookingId, token);
       const updated = response.data;
       setBookings((prev) => prev.map((b) => (b.id === bookingId ? updated : b)));
-      setSuccessMessage(`Booking #${bookingId} was successfully cancelled.`);
+      setSuccessMessage(t('booking.cancelSuccess', { id: bookingId }));
       setConfirmCancelId(null);
     } catch (err) {
-      setErrorMessage(err.message || 'Failed to cancel booking.');
+      setErrorMessage(err.message || t('booking.failedToCancel'));
     } finally {
       setCancellingId(null);
     }
@@ -158,7 +164,7 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
         setReviewingBooking(booking);
       } else {
         setReviewedBookingIds((prev) => (prev.includes(booking.id) ? prev : [...prev, booking.id]));
-        setErrorMessage(res?.data?.reason || 'You have already reviewed this booking or are not eligible.');
+        setErrorMessage(res?.data?.reason || t('reviews.alreadyReviewed'));
       }
     } catch (e) {
       setReviewingBooking(booking);
@@ -170,27 +176,27 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
     switch (status.toUpperCase()) {
       case 'APPROVED':
         return {
-          label: '✅ Approved',
+          label: t('booking.statusApproved'),
           styles: 'bg-emerald-50 text-emerald-700 border-emerald-200',
         };
       case 'PENDING':
         return {
-          label: '⏳ Pending Approval',
+          label: t('booking.statusPending'),
           styles: 'bg-amber-50 text-amber-700 border-amber-200',
         };
       case 'REJECTED':
         return {
-          label: '❌ Rejected',
+          label: t('booking.statusRejected'),
           styles: 'bg-rose-50 text-rose-700 border-rose-200',
         };
       case 'CANCELLED':
         return {
-          label: '🚫 Cancelled',
+          label: t('booking.statusCancelled'),
           styles: 'bg-slate-100 text-slate-600 border-slate-300',
         };
       case 'COMPLETED':
         return {
-          label: '🎉 Completed',
+          label: t('booking.statusCompleted'),
           styles: 'bg-indigo-50 text-indigo-700 border-indigo-200',
         };
       default:
@@ -198,22 +204,6 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
           label: status,
           styles: 'bg-slate-50 text-slate-700 border-slate-200',
         };
-    }
-  };
-
-  const formatDateTime = (isoString) => {
-    if (!isoString) return 'N/A';
-    try {
-      const date = new Date(isoString);
-      return date.toLocaleString('en-IN', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch (e) {
-      return isoString;
     }
   };
 
@@ -236,15 +226,15 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
             onClick={onNavigateToHome}
             className="inline-flex items-center text-xs font-semibold text-emerald-700 hover:text-emerald-800 transition-colors"
           >
-            ← Back to Browse Equipment
+            {t('renterDashboard.backToBrowse')}
           </button>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-5">
             <div>
               <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                My Bookings
+                {t('renterDashboard.title')}
               </h1>
               <p className="text-sm text-slate-600 mt-1">
-                Track your equipment requests, upcoming rentals, and rental spending.
+                {t('renterDashboard.subtitle')}
               </p>
             </div>
             <button
@@ -252,7 +242,7 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
               onClick={onNavigateToHome}
               className="inline-flex items-center justify-center px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-xs transition-colors shrink-0 space-x-1.5"
             >
-              <span>🔍 Rent More Machinery</span>
+              <span>{t('renterDashboard.rentMoreMachinery')}</span>
             </button>
           </div>
         </div>
@@ -261,16 +251,16 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
         {!isAuthenticated ? (
           <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center max-w-lg mx-auto space-y-4 shadow-xs">
             <div className="text-4xl">🔐</div>
-            <h3 className="text-lg font-bold text-slate-900">Authentication Required</h3>
+            <h3 className="text-lg font-bold text-slate-900">{t('common.authRequiredTitle')}</h3>
             <p className="text-xs text-slate-600">
-              Please log in to your farmer account to view your bookings, upcoming rentals, and rental spending summary.
+              {t('renterDashboard.authDesc')}
             </p>
             <button
               type="button"
               onClick={onNavigateToHome}
               className="inline-flex items-center px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors"
             >
-              Go to Home & Log In
+              {t('common.goToHomeLogin')}
             </button>
           </div>
         ) : (
@@ -313,9 +303,9 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                     : 'border-transparent text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <span>📋 All Bookings</span>
+                <span>{t('renterDashboard.tabAll')}</span>
                 <span className="px-2 py-0.5 text-[11px] rounded-full bg-slate-100 text-slate-700 font-semibold">
-                  {totalRequestsCount}
+                  {formatNumber(totalRequestsCount)}
                 </span>
               </button>
 
@@ -328,10 +318,10 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                     : 'border-transparent text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <span>🗓️ Upcoming Rentals</span>
+                <span>{t('renterDashboard.tabUpcoming')}</span>
                 {upcomingRentals.length > 0 && (
                   <span className="px-2 py-0.5 text-[11px] rounded-full bg-emerald-100 text-emerald-800 font-bold">
-                    {upcomingRentals.length}
+                    {formatNumber(upcomingRentals.length)}
                   </span>
                 )}
               </button>
@@ -345,9 +335,9 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                     : 'border-transparent text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <span>📜 Rental History</span>
+                <span>{t('renterDashboard.tabHistory')}</span>
                 <span className="px-2 py-0.5 text-[11px] rounded-full bg-slate-100 text-slate-700 font-semibold">
-                  {historyBookings.length}
+                  {formatNumber(historyBookings.length)}
                 </span>
               </button>
 
@@ -360,9 +350,9 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                     : 'border-transparent text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <span>💰 Spending Summary</span>
+                <span>{t('renterDashboard.tabSpending')}</span>
                 <span className="px-2 py-0.5 text-[11px] rounded-full bg-indigo-50 text-indigo-700 font-semibold">
-                  ₹{completedRentalSpend.toLocaleString('en-IN')}
+                  ₹{formatNumber(completedRentalSpend)}
                 </span>
               </button>
             </div>
@@ -373,21 +363,21 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                 {isLoading ? (
                   <div className="py-16 text-center text-slate-500 space-y-2">
                     <div className="animate-spin inline-block w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full"></div>
-                    <p className="text-sm font-medium">Loading your bookings...</p>
+                    <p className="text-sm font-medium">{t('renterDashboard.loadingBookings')}</p>
                   </div>
                 ) : bookings.length === 0 ? (
                   <div className="py-12 text-center bg-white border border-dashed border-slate-300 rounded-2xl space-y-3">
                     <span className="text-4xl">🚜</span>
-                    <h4 className="text-base font-bold text-slate-900">No rental bookings yet</h4>
+                    <h4 className="text-base font-bold text-slate-900">{t('renterDashboard.noBookingsYet')}</h4>
                     <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                      You haven't requested any farm machinery yet. Browse available tractors and equipment to place a request.
+                      {t('renterDashboard.noBookingsYetDesc')}
                     </p>
                     <button
                       type="button"
                       onClick={onNavigateToHome}
                       className="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors"
                     >
-                      Browse Equipment
+                      {t('renterDashboard.browseEquipment')}
                     </button>
                   </div>
                 ) : (
@@ -419,15 +409,15 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                                 )}
                               </div>
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
-                                <span>🏷️ {booking.equipmentCategory}</span>
+                                <span>🏷️ {getCategoryLabel(booking.equipmentCategory)}</span>
                                 <span>📍 {booking.location}</span>
                               </div>
                               <div className="text-xs text-slate-500 space-y-0.5 pt-1">
-                                <p>🗓️ <strong>Start:</strong> {formatDateTime(booking.startDateTime)}</p>
-                                <p>🏁 <strong>End:</strong> {formatDateTime(booking.endDateTime)} ({booking.duration} {booking.priceUnit}{booking.duration > 1 ? 's' : ''})</p>
+                                <p>🗓️ <strong>{t('booking.start')}</strong> {formatDateTime(booking.startDateTime)}</p>
+                                <p>🏁 <strong>{t('booking.end')}</strong> {formatDateTime(booking.endDateTime)} ({booking.duration} {booking.priceUnit === 'day' ? t('common.day') : t('common.hour')})</p>
                                 {booking.notes && (
                                   <p className="italic text-slate-600 mt-1 bg-slate-50 p-2 rounded-md border border-slate-100">
-                                    💬 Notes: "{booking.notes}"
+                                    💬 {t('booking.notes')} "{booking.notes}"
                                   </p>
                                 )}
                               </div>
@@ -436,9 +426,9 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
 
                           <div className="flex flex-row md:flex-col items-center md:items-end justify-between w-full md:w-auto border-t md:border-t-0 border-slate-100 pt-3 md:pt-0 shrink-0 space-y-2">
                             <div className="text-left md:text-right">
-                              <p className="text-xs text-slate-500 font-medium">Rental Total</p>
+                              <p className="text-xs text-slate-500 font-medium">{t('booking.rentalTotal')}</p>
                               <p className="text-xl font-black text-emerald-700">
-                                ₹{booking.totalPrice ? booking.totalPrice.toLocaleString('en-IN') : '0'}
+                                ₹{booking.totalPrice ? formatNumber(booking.totalPrice) : '0'}
                               </p>
                             </div>
 
@@ -447,21 +437,21 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                               <div>
                                 {confirmCancelId === booking.id ? (
                                   <div className="flex items-center space-x-2 bg-red-50 p-1.5 rounded-lg border border-red-200">
-                                    <span className="text-xs text-red-800 font-semibold">Cancel booking?</span>
+                                    <span className="text-xs text-red-800 font-semibold">{t('booking.cancelBookingQuestion')}</span>
                                     <button
                                       type="button"
                                       onClick={() => handleCancelBooking(booking.id)}
                                       disabled={cancellingId === booking.id}
                                       className="px-2.5 py-1 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded transition-colors disabled:opacity-50"
                                     >
-                                      {cancellingId === booking.id ? 'Cancelling...' : 'Yes, Cancel'}
+                                      {cancellingId === booking.id ? t('booking.cancelling') : t('booking.yesCancel')}
                                     </button>
                                     <button
                                       type="button"
                                       onClick={() => setConfirmCancelId(null)}
                                       className="px-2 py-1 text-xs font-semibold text-slate-600 bg-white border border-slate-300 rounded"
                                     >
-                                      Back
+                                      {t('common.back')}
                                     </button>
                                   </div>
                                 ) : (
@@ -470,7 +460,7 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                                     onClick={() => setConfirmCancelId(booking.id)}
                                     className="px-3.5 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors"
                                   >
-                                    Cancel Booking
+                                    {t('booking.cancelBooking')}
                                   </button>
                                 )}
                               </div>
@@ -482,7 +472,7 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                                 {reviewedBookingIds.includes(booking.id) ? (
                                   <span className="inline-flex items-center space-x-1 px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
                                     <span>⭐</span>
-                                    <span>Reviewed</span>
+                                    <span>{t('reviews.reviewedBadge')}</span>
                                   </span>
                                 ) : (
                                   <button
@@ -491,7 +481,7 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                                     className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-amber-950 bg-amber-400 hover:bg-amber-500 rounded-lg shadow-xs transition-colors cursor-pointer"
                                   >
                                     <span>⭐</span>
-                                    <span>Rate Owner</span>
+                                    <span>{t('reviews.rateOwnerButton')}</span>
                                   </button>
                                 )}
                               </div>
@@ -511,14 +501,14 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                 {isLoading ? (
                   <div className="py-16 text-center text-slate-500 space-y-2">
                     <div className="animate-spin inline-block w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full"></div>
-                    <p className="text-sm font-medium">Loading upcoming rentals...</p>
+                    <p className="text-sm font-medium">{t('renterDashboard.loadingUpcoming')}</p>
                   </div>
                 ) : upcomingRentals.length === 0 ? (
                   <div className="py-12 text-center bg-white border border-dashed border-slate-300 rounded-2xl space-y-2">
                     <span className="text-4xl">🗓️</span>
-                    <h4 className="text-base font-bold text-slate-900">No upcoming rentals scheduled</h4>
+                    <h4 className="text-base font-bold text-slate-900">{t('renterDashboard.noUpcomingRentals')}</h4>
                     <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                      Approved rentals with future start dates will appear here once confirmed by machinery owners.
+                      {t('renterDashboard.noUpcomingRentalsDesc')}
                     </p>
                   </div>
                 ) : (
@@ -538,47 +528,47 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                             <div className="flex items-center space-x-2 flex-wrap">
                               <h3 className="text-base font-bold text-slate-900">{booking.equipmentName}</h3>
                               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                ✅ Approved • Upcoming
+                                {t('booking.statusApprovedUpcoming')}
                               </span>
                             </div>
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
-                              <span>🏷️ {booking.equipmentCategory}</span>
+                              <span>🏷️ {getCategoryLabel(booking.equipmentCategory)}</span>
                               <span>📍 {booking.location}</span>
                             </div>
                             <div className="text-xs text-slate-500 space-y-0.5 pt-1">
                               <p className="font-semibold text-slate-800">
-                                🗓️ Starts: {formatDateTime(booking.startDateTime)}
+                                🗓️ {t('renterDashboard.starts')} {formatDateTime(booking.startDateTime)}
                               </p>
-                              <p>🏁 Ends: {formatDateTime(booking.endDateTime)} ({booking.duration} {booking.priceUnit}{booking.duration > 1 ? 's' : ''})</p>
+                              <p>🏁 {t('renterDashboard.ends')} {formatDateTime(booking.endDateTime)} ({booking.duration} {booking.priceUnit === 'day' ? t('common.day') : t('common.hour')})</p>
                             </div>
                           </div>
                         </div>
 
                         <div className="flex flex-row md:flex-col items-center md:items-end justify-between w-full md:w-auto border-t md:border-t-0 border-slate-100 pt-3 md:pt-0 shrink-0 space-y-2">
                           <div className="text-left md:text-right">
-                            <p className="text-xs text-slate-500 font-medium">Rental Total</p>
+                            <p className="text-xs text-slate-500 font-medium">{t('booking.rentalTotal')}</p>
                             <p className="text-xl font-black text-emerald-700">
-                              ₹{booking.totalPrice ? booking.totalPrice.toLocaleString('en-IN') : '0'}
+                              ₹{booking.totalPrice ? formatNumber(booking.totalPrice) : '0'}
                             </p>
                           </div>
                           <div>
                             {confirmCancelId === booking.id ? (
                               <div className="flex items-center space-x-2 bg-red-50 p-1.5 rounded-lg border border-red-200">
-                                <span className="text-xs text-red-800 font-semibold">Cancel?</span>
+                                <span className="text-xs text-red-800 font-semibold">{t('booking.cancelBookingQuestion')}</span>
                                 <button
                                   type="button"
                                   onClick={() => handleCancelBooking(booking.id)}
                                   disabled={cancellingId === booking.id}
                                   className="px-2.5 py-1 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded transition-colors disabled:opacity-50"
                                 >
-                                  {cancellingId === booking.id ? '...' : 'Yes, Cancel'}
+                                  {cancellingId === booking.id ? t('booking.cancelling') : t('booking.yesCancel')}
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setConfirmCancelId(null)}
                                   className="px-2 py-1 text-xs font-semibold text-slate-600 bg-white border border-slate-300 rounded"
                                 >
-                                  Back
+                                  {t('common.back')}
                                 </button>
                               </div>
                             ) : (
@@ -587,7 +577,7 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                                 onClick={() => setConfirmCancelId(booking.id)}
                                 className="px-3.5 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors"
                               >
-                                Cancel Booking
+                                {t('booking.cancelBooking')}
                               </button>
                             )}
                           </div>
@@ -604,12 +594,12 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
               <div className="space-y-4">
                 {/* Sub-filter tabs */}
                 <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                  <span className="text-xs font-semibold text-slate-500 mr-1">Status Filter:</span>
+                  <span className="text-xs font-semibold text-slate-500 mr-1">{t('ownerDashboard.statusFilter')}</span>
                   {[
-                    { id: 'ALL', label: `All History (${historyBookings.length})` },
-                    { id: 'COMPLETED', label: `Completed (${completedBookings.length})` },
-                    { id: 'REJECTED', label: `Rejected (${rejectedBookings.length})` },
-                    { id: 'CANCELLED', label: `Cancelled (${cancelledBookings.length})` },
+                    { id: 'ALL', label: t('ownerDashboard.allHistory', { count: formatNumber(historyBookings.length) }) },
+                    { id: 'COMPLETED', label: t('ownerDashboard.completedHistory', { count: formatNumber(completedBookings.length) }) },
+                    { id: 'REJECTED', label: t('ownerDashboard.rejectedHistory', { count: formatNumber(rejectedBookings.length) }) },
+                    { id: 'CANCELLED', label: t('ownerDashboard.cancelledHistory', { count: formatNumber(cancelledBookings.length) }) },
                   ].map((filter) => (
                     <button
                       key={filter.id}
@@ -629,16 +619,18 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                 {isLoading ? (
                   <div className="py-16 text-center text-slate-500 space-y-2">
                     <div className="animate-spin inline-block w-8 h-8 border-3 border-slate-800 border-t-transparent rounded-full"></div>
-                    <p className="text-sm font-medium">Loading rental history...</p>
+                    <p className="text-sm font-medium">{t('ownerDashboard.loadingHistory')}</p>
                   </div>
                 ) : filteredHistory.length === 0 ? (
                   <div className="py-12 text-center bg-white border border-dashed border-slate-300 rounded-2xl space-y-2">
                     <span className="text-4xl">📜</span>
                     <h4 className="text-base font-bold text-slate-900">
-                      No {historySubFilter !== 'ALL' ? historySubFilter.toLowerCase() : ''} history records found
+                      {t('ownerDashboard.noHistoryRecords', {
+                        status: historySubFilter !== 'ALL' ? (getBookingStatusLabel(historySubFilter) || historySubFilter) : ''
+                      })}
                     </h4>
                     <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                      Completed, rejected, or cancelled rentals will appear here for your records.
+                      {t('ownerDashboard.noHistoryRecordsDesc')}
                     </p>
                   </div>
                 ) : (
@@ -666,21 +658,21 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                                 )}
                               </div>
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
-                                <span>🏷️ {booking.equipmentCategory}</span>
+                                <span>🏷️ {getCategoryLabel(booking.equipmentCategory)}</span>
                                 <span>📍 {booking.location}</span>
                               </div>
                               <div className="text-xs text-slate-500 space-y-0.5 pt-1">
-                                <p>🗓️ <strong>Rental Period:</strong> {formatDateTime(booking.startDateTime)} to {formatDateTime(booking.endDateTime)}</p>
-                                <p>⏱️ <strong>Duration:</strong> {booking.duration} {booking.priceUnit}{booking.duration > 1 ? 's' : ''}</p>
+                                <p>🗓️ <strong>{t('booking.rentalPeriod')}</strong> {formatDateTime(booking.startDateTime)} — {formatDateTime(booking.endDateTime)}</p>
+                                <p>⏱️ <strong>{t('booking.duration')}</strong> {booking.duration} {booking.priceUnit === 'day' ? (booking.duration > 1 ? t('common.days') : t('common.day')) : (booking.duration > 1 ? t('common.hours') : t('common.hour'))}</p>
                               </div>
                             </div>
                           </div>
 
                           <div className="flex flex-row md:flex-col items-center md:items-end justify-between w-full md:w-auto border-t md:border-t-0 border-slate-100 pt-3 md:pt-0 shrink-0 space-y-2">
                             <div className="text-left md:text-right">
-                              <p className="text-xs text-slate-500 font-medium">Rental Total</p>
+                              <p className="text-xs text-slate-500 font-medium">{t('booking.rentalTotal')}</p>
                               <p className="text-xl font-black text-slate-800">
-                                ₹{booking.totalPrice ? booking.totalPrice.toLocaleString('en-IN') : '0'}
+                                ₹{booking.totalPrice ? formatNumber(booking.totalPrice) : '0'}
                               </p>
                             </div>
 
@@ -690,7 +682,7 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                                 {reviewedBookingIds.includes(booking.id) ? (
                                   <span className="inline-flex items-center space-x-1 px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
                                     <span>⭐</span>
-                                    <span>Reviewed</span>
+                                    <span>{t('reviews.reviewedBadge')}</span>
                                   </span>
                                 ) : (
                                   <button
@@ -699,7 +691,7 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                                     className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-amber-950 bg-amber-400 hover:bg-amber-500 rounded-lg shadow-xs transition-colors cursor-pointer"
                                   >
                                     <span>⭐</span>
-                                    <span>Rate Owner</span>
+                                    <span>{t('reviews.rateOwnerButton')}</span>
                                   </button>
                                 )}
                               </div>
@@ -720,18 +712,18 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                 <div className="bg-gradient-to-br from-indigo-900 to-indigo-800 rounded-2xl p-6 text-white shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div className="space-y-1">
                     <span className="text-xs font-semibold uppercase tracking-wider text-indigo-200">
-                      Total Completed Rental Spend
+                      {t('renterDashboard.totalSpending')}
                     </span>
                     <h2 className="text-3xl font-black tracking-tight text-white">
-                      ₹{completedRentalSpend.toLocaleString('en-IN')}
+                      ₹{formatNumber(completedRentalSpend)}
                     </h2>
                     <p className="text-xs text-indigo-200 max-w-md">
-                      Calculated as the sum of total price across all completed equipment bookings. Does not include pending, cancelled, or rejected requests.
+                      {t('renterDashboard.totalSpendingDesc')}
                     </p>
                   </div>
                   <div className="text-right shrink-0 bg-white/10 backdrop-blur-xs px-5 py-3 rounded-xl border border-white/20">
-                    <span className="block text-2xl font-black text-white">{completedBookings.length}</span>
-                    <span className="text-xs text-indigo-100 font-medium">Completed Bookings</span>
+                    <span className="block text-2xl font-black text-white">{formatNumber(completedBookings.length)}</span>
+                    <span className="text-xs text-indigo-100 font-medium">{t('renterDashboard.completedBookingsCount')}</span>
                   </div>
                 </div>
 
@@ -740,10 +732,10 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                   <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
                     <div className="border-b border-slate-200 pb-3">
                       <h3 className="text-base font-bold text-slate-900">
-                        Monthly Rental Spending Breakdown
+                        {t('renterDashboard.monthlySpending')}
                       </h3>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Grouped by rental scheduled start date for completed bookings.
+                        {t('renterDashboard.monthlySpendingDesc')}
                       </p>
                     </div>
 
@@ -757,10 +749,10 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                             {group.monthYear}
                           </span>
                           <p className="text-xl font-black text-indigo-700">
-                            ₹{group.total.toLocaleString('en-IN')}
+                            ₹{formatNumber(group.total)}
                           </p>
                           <p className="text-[11px] text-slate-500">
-                            {group.count} completed rental{group.count === 1 ? '' : 's'}
+                            {t('ownerDashboard.completedRentalsCountUnit', { count: formatNumber(group.count) })}
                           </p>
                         </div>
                       ))}
@@ -772,18 +764,18 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                 <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
                   <div className="border-b border-slate-200 pb-3">
                     <h3 className="text-base font-bold text-slate-900">
-                      Completed Rentals Contributing to Spend
+                      {t('renterDashboard.contributingBookings')}
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Itemized list of fulfilled machinery bookings.
+                      {t('renterDashboard.contributingBookingsDesc')}
                     </p>
                   </div>
 
                   {completedBookings.length === 0 ? (
                     <div className="py-8 text-center text-slate-500 space-y-1">
-                      <p className="text-sm font-semibold">No completed rentals yet.</p>
+                      <p className="text-sm font-semibold">{t('renterDashboard.noCompletedBookingsYet')}</p>
                       <p className="text-xs text-slate-400">
-                        When rental periods end and owners mark bookings as completed, records will appear here.
+                        {t('renterDashboard.noCompletedBookingsYetDesc')}
                       </p>
                     </div>
                   ) : (
@@ -802,16 +794,16 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
                             <div>
                               <p className="font-bold text-slate-900 text-sm">{b.equipmentName}</p>
                               <p className="text-slate-500">
-                                {b.equipmentCategory} • {formatDateTime(b.startDateTime)} to {formatDateTime(b.endDateTime)}
+                                {getCategoryLabel(b.equipmentCategory)} • {formatDateTime(b.startDateTime)} — {formatDateTime(b.endDateTime)}
                               </p>
                             </div>
                           </div>
                           <div className="text-left sm:text-right">
                             <span className="text-sm font-extrabold text-indigo-700">
-                              ₹{b.totalPrice ? b.totalPrice.toLocaleString('en-IN') : '0'}
+                              ₹{b.totalPrice ? formatNumber(b.totalPrice) : '0'}
                             </span>
                             <span className="block text-[11px] text-slate-400">
-                              {b.duration} {b.priceUnit}{b.duration > 1 ? 's' : ''}
+                              {b.duration} {b.priceUnit === 'day' ? (b.duration > 1 ? t('common.days') : t('common.day')) : (b.duration > 1 ? t('common.hours') : t('common.hour'))}
                             </span>
                           </div>
                         </div>
@@ -835,7 +827,7 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
             setReviewedBookingIds((prev) =>
               prev.includes(reviewingBooking.id) ? prev : [...prev, reviewingBooking.id]
             );
-            setSuccessMessage(`Review for booking #${reviewingBooking.id} submitted successfully!`);
+            setSuccessMessage(t('reviews.submitSuccess'));
             loadBookings();
           }}
         />
@@ -844,10 +836,10 @@ const RenterDashboard = ({ onNavigateToHome, onNavigateToOwnerDashboard }) => {
       {/* Footer */}
       <footer className="bg-slate-900 text-slate-400 py-8 px-4 border-t border-slate-800 mt-12">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs sm:text-sm">
-          <p>© {new Date().getFullYear()} AgroRent - Farmer Equipment Rental Platform. All rights reserved.</p>
+          <p>{t('home.footerCopyright', { year: new Date().getFullYear() })}</p>
           <div className="flex space-x-6">
             <button type="button" onClick={onNavigateToHome} className="hover:text-white transition-colors">
-              Browse Equipment
+              {t('home.footerBrowse')}
             </button>
           </div>
         </div>

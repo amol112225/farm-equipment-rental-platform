@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../context/AuthContext';
+import { useLanguage } from '../../../context/LanguageContext';
 import { createEquipment } from '../../../services/equipmentService';
 
 /**
  * AddEquipmentModal Component
  * Dialog allowing authenticated farmers to list new agricultural equipment
- * with direct photo upload (JPEG, PNG, WebP up to 5MB, multiple photos).
+ * with direct photo upload (JPEG, PNG, WebP up to 5MB, multiple photos) and multilingual support.
  */
 const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
   if (!isOpen) return null;
 
   const { token, isAuthenticated } = useAuth();
+  const { t, getCategoryLabel } = useLanguage();
   const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
@@ -74,7 +76,7 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
     if (!files.length) return;
 
     if (selectedPhotos.length + files.length > MAX_PHOTOS) {
-      setPhotoError(`You can upload a maximum of ${MAX_PHOTOS} photos per equipment listing.`);
+      setPhotoError(t('equipment.maxPhotosLimit', { max: MAX_PHOTOS }));
       return;
     }
 
@@ -86,15 +88,15 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
       const hasValidExt = allowedExts.some((ext) => lowerName.endsWith(ext));
 
       if (!ALLOWED_TYPES.includes(file.type.toLowerCase()) || !hasValidExt) {
-        setPhotoError(`"${file.name}" has an unsupported format. Only JPEG, PNG, and WebP are allowed.`);
+        setPhotoError(t('equipment.unsupportedFormat', { name: file.name }));
         return;
       }
       if (file.size > MAX_FILE_SIZE) {
-        setPhotoError(`"${file.name}" exceeds the maximum 5MB file size limit.`);
+        setPhotoError(t('equipment.fileTooLarge', { name: file.name }));
         return;
       }
       if (file.size === 0) {
-        setPhotoError(`"${file.name}" is empty. Please select a valid photo.`);
+        setPhotoError(t('equipment.fileEmpty', { name: file.name }));
         return;
       }
 
@@ -111,7 +113,7 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
           };
           img.onerror = () => {
             URL.revokeObjectURL(previewUrl);
-            reject(new Error(`"${file.name}" contains invalid or unreadable image content.`));
+            reject(new Error(t('equipment.invalidImageContent', { name: file.name })));
           };
           img.src = previewUrl;
         });
@@ -138,7 +140,6 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
       if (updated.length === 0) {
         setPrimaryPhotoIndex(0);
       } else if (indexToRemove === primaryPhotoIndex) {
-        // Automatically designate the first remaining photo as primary
         setPrimaryPhotoIndex(0);
       } else if (indexToRemove < primaryPhotoIndex) {
         setPrimaryPhotoIndex(primaryPhotoIndex - 1);
@@ -158,7 +159,7 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
     setPhotoError('');
 
     if (!isAuthenticated || !token) {
-      setGeneralError('Please log in to your farmer account to list equipment.');
+      setGeneralError(t('home.loginRequiredToList'));
       return;
     }
 
@@ -167,7 +168,7 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
     if (isNaN(numericPrice) || numericPrice <= 0) {
       setFieldErrors((prev) => ({
         ...prev,
-        price: 'Price must be a positive value greater than zero.',
+        price: t('equipment.price'),
       }));
       return;
     }
@@ -206,7 +207,7 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
       setIsSubmitting(false);
 
       if (onSuccess) {
-        onSuccess('Equipment listing created successfully with photos!');
+        onSuccess(t('equipment.createSuccess', { name: formData.name.trim() }));
       }
       onClose();
     } catch (err) {
@@ -214,7 +215,7 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
       if (err.errors) {
         setFieldErrors(err.errors);
       }
-      setGeneralError(err.message || 'Failed to create equipment listing. Please check fields.');
+      setGeneralError(err.message || t('common.serverError'));
     }
   };
 
@@ -229,16 +230,16 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 text-emerald-100 hover:text-white p-1 rounded-full hover:bg-emerald-600/50 transition-colors"
-            aria-label="Close modal"
+            className="absolute top-4 right-4 text-emerald-100 hover:text-white p-1 rounded-full hover:bg-emerald-600/50 transition-colors cursor-pointer"
+            aria-label={t('common.close')}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          <h2 className="text-xl font-bold tracking-tight">List Your Equipment</h2>
+          <h2 className="text-xl font-bold tracking-tight">{t('equipment.addNewEquipmentTitle')}</h2>
           <p className="text-xs text-emerald-100 mt-1">
-            Upload photos and equipment details to offer rentals to local farmers
+            {t('equipment.addNewEquipmentSubtitle')}
           </p>
         </div>
 
@@ -257,7 +258,7 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
             {/* Name */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                Equipment Name *
+                {t('equipment.name')} *
               </label>
               <input
                 type="text"
@@ -266,7 +267,7 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
                 maxLength={150}
                 value={formData.name}
                 onChange={handleChange}
-                placeholder="e.g. John Deere 5050D Tractor"
+                placeholder={t('equipment.equipmentNamePlaceholder')}
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors"
               />
               {fieldErrors.name && (
@@ -278,7 +279,7 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Category *
+                  {t('equipment.category')} *
                 </label>
                 <select
                   name="category"
@@ -289,7 +290,7 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
                 >
                   {categories.map((cat) => (
                     <option key={cat} value={cat}>
-                      {cat}
+                      {getCategoryLabel(cat)}
                     </option>
                   ))}
                 </select>
@@ -300,7 +301,7 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Location (Village / District) *
+                  {t('equipment.location')} *
                 </label>
                 <input
                   type="text"
@@ -309,7 +310,7 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
                   maxLength={200}
                   value={formData.location}
                   onChange={handleChange}
-                  placeholder="e.g. Khed, Pune"
+                  placeholder={t('equipment.locationPlaceholder')}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors"
                 />
                 {fieldErrors.location && (
@@ -322,7 +323,7 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Rental Price (₹) *
+                  {t('equipment.price')} (₹) *
                 </label>
                 <input
                   type="number"
@@ -342,7 +343,7 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Price Unit *
+                  {t('equipment.priceUnit')} *
                 </label>
                 <select
                   name="priceUnit"
@@ -351,8 +352,8 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
                   onChange={handleChange}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors"
                 >
-                  <option value="hour">Per Hour</option>
-                  <option value="day">Per Day</option>
+                  <option value="hour">{t('common.perHour')}</option>
+                  <option value="day">{t('common.perDay')}</option>
                 </select>
                 {fieldErrors.priceUnit && (
                   <p className="text-xs text-red-600 font-medium mt-1">{fieldErrors.priceUnit}</p>
@@ -364,7 +365,7 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Booking Preference *
+                  {t('equipment.bookingMode')}
                 </label>
                 <select
                   name="bookingType"
@@ -373,9 +374,9 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
                   onChange={handleChange}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors"
                 >
-                  <option value="instant">Instant Booking</option>
-                  <option value="request">Request to Book</option>
-                  <option value="both">Both (Instant / Request)</option>
+                  <option value="instant">{t('equipment.instantBookingOption')}</option>
+                  <option value="request">{t('equipment.requestBookingOption')}</option>
+                  <option value="both">{t('equipment.bothBookingOption')}</option>
                 </select>
                 {fieldErrors.bookingType && (
                   <p className="text-xs text-red-600 font-medium mt-1">{fieldErrors.bookingType}</p>
@@ -391,7 +392,7 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
                     onChange={handleChange}
                     className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
                   />
-                  <span className="text-sm font-semibold text-slate-800">Currently Available for Rent</span>
+                  <span className="text-sm font-semibold text-slate-800">{t('equipment.markAvailable')}</span>
                 </label>
               </div>
             </div>
@@ -401,14 +402,14 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
               <div className="flex items-center justify-between">
                 <div>
                   <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
-                    Equipment Photos (JPEG, PNG, WebP)
+                    {t('equipment.equipmentPhotosLabel')}
                   </label>
                   <p className="text-[11px] text-slate-500">
-                    Upload up to {MAX_PHOTOS} photos. Max 5MB per file.
+                    {t('equipment.photosLimitDesc')}
                   </p>
                 </div>
                 <span className="text-xs font-semibold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md">
-                  {selectedPhotos.length}/{MAX_PHOTOS} selected
+                  {t('equipment.photosSelectedCount', { count: selectedPhotos.length })}
                 </span>
               </div>
 
@@ -439,9 +440,9 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
-                      <span className="text-xs sm:text-sm font-semibold">Choose Photos from Device</span>
+                      <span className="text-xs sm:text-sm font-semibold">{t('equipment.dragDropOrBrowse')}</span>
                     </div>
-                    <span className="text-[11px] text-slate-400 mt-1">Tap to select photos from phone camera or gallery</span>
+                    <span className="text-[11px] text-slate-400 mt-1">{t('equipment.photoRulesHint')}</span>
                   </label>
                 </div>
               )}
@@ -452,11 +453,10 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
                   {selectedPhotos.map((photo, idx) => (
                     <div
                       key={photo.id}
-                      className={`relative rounded-lg overflow-hidden border-2 bg-slate-100 h-28 group transition-all ${
-                        idx === primaryPhotoIndex
+                      className={`relative rounded-lg overflow-hidden border-2 bg-slate-100 h-28 group transition-all ${idx === primaryPhotoIndex
                           ? 'border-emerald-600 ring-2 ring-emerald-500/30'
                           : 'border-slate-200'
-                      }`}
+                        }`}
                     >
                       <img
                         src={photo.previewUrl}
@@ -468,16 +468,16 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
                       {idx === primaryPhotoIndex ? (
                         <span className="absolute top-1.5 left-1.5 bg-emerald-700 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-xs flex items-center gap-1">
                           <span>★</span>
-                          <span>Primary Photo</span>
+                          <span>{t('equipment.primaryCover')}</span>
                         </span>
                       ) : (
                         <button
                           type="button"
                           onClick={() => handleSetPrimary(idx)}
-                          className="absolute top-1.5 left-1.5 bg-slate-900/80 hover:bg-emerald-700 text-white text-[10px] font-semibold px-2 py-0.5 rounded transition-colors shadow-xs"
-                          title="Click to set this as the main cover photo"
+                          className="absolute top-1.5 left-1.5 bg-slate-900/80 hover:bg-emerald-700 text-white text-[10px] font-semibold px-2 py-0.5 rounded transition-colors shadow-xs cursor-pointer"
+                          title={t('equipment.setAsPrimary')}
                         >
-                          Set as Primary
+                          {t('equipment.setAsPrimary')}
                         </button>
                       )}
 
@@ -485,9 +485,9 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
                       <button
                         type="button"
                         onClick={() => handleRemovePhoto(idx)}
-                        className="absolute top-1.5 right-1.5 bg-red-600 text-white hover:bg-red-700 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-colors shadow-xs"
-                        aria-label="Remove photo"
-                        title="Remove photo"
+                        className="absolute top-1.5 right-1.5 bg-red-600 text-white hover:bg-red-700 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-colors shadow-xs cursor-pointer"
+                        aria-label={t('equipment.removePhoto')}
+                        title={t('equipment.removePhoto')}
                       >
                         ✕
                       </button>
@@ -506,9 +506,9 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
                 <button
                   type="button"
                   onClick={() => setShowUrlFallback(!showUrlFallback)}
-                  className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 hover:underline flex items-center gap-1"
+                  className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 hover:underline flex items-center gap-1 cursor-pointer"
                 >
-                  <span>{showUrlFallback ? '▲ Hide External URL Input' : '▼ Or enter Image URL manually'}</span>
+                  <span>{showUrlFallback ? `▲ ${t('equipment.hideUrlInput')}` : `▼ ${t('equipment.enterUrlManually')}`}</span>
                 </button>
                 {showUrlFallback && (
                   <div className="mt-2">
@@ -518,7 +518,7 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
                       maxLength={500}
                       value={formData.imageUrl}
                       onChange={handleChange}
-                      placeholder="https://example.com/tractor-image.jpg"
+                      placeholder={t('equipment.urlFallbackPlaceholder')}
                       className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
@@ -529,7 +529,7 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
             {/* Description */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                Description (Optional)
+                {t('equipment.description')}
               </label>
               <textarea
                 name="description"
@@ -537,7 +537,7 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
                 maxLength={2000}
                 value={formData.description}
                 onChange={handleChange}
-                placeholder="Specify HP, implements included, driver availability, etc."
+                placeholder={t('equipment.descriptionPlaceholder')}
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors"
               />
               {fieldErrors.description && (
@@ -550,14 +550,14 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 text-sm font-semibold text-slate-600 hover:text-slate-800 border border-slate-300 rounded-lg transition-colors"
+                className="px-4 py-2.5 text-sm font-semibold text-slate-600 hover:text-slate-800 border border-slate-300 rounded-lg transition-colors cursor-pointer"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-lg shadow-sm transition-all duration-200 disabled:opacity-60 flex items-center space-x-2"
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-lg shadow-sm transition-all duration-200 disabled:opacity-60 flex items-center space-x-2 cursor-pointer"
               >
                 {isSubmitting ? (
                   <>
@@ -565,10 +565,10 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <span>Uploading Photos & Saving...</span>
+                    <span>{t('equipment.submittingListing')}</span>
                   </>
                 ) : (
-                  <span>Publish Listing</span>
+                  <span>{t('equipment.submitListingButton')}</span>
                 )}
               </button>
             </div>

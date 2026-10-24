@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../../context/AuthContext';
+import { useLanguage } from '../../../context/LanguageContext';
 import {
   fetchMyEquipment,
   updateEquipment,
@@ -13,12 +14,13 @@ import {
 /**
  * MyEquipmentModal Component
  * Allows authenticated farmers to manage (view, edit, upload/remove photos, delete)
- * their own equipment listings.
+ * their own equipment listings with multilingual support.
  */
 const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }) => {
   if (!isOpen) return null;
 
   const { token, isAuthenticated } = useAuth();
+  const { t, formatCurrency, getCategoryLabel } = useLanguage();
   const fileInputRef = useRef(null);
 
   const [myListings, setMyListings] = useState([]);
@@ -73,11 +75,11 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
       const response = await fetchMyEquipment(token);
       setMyListings(response.data || []);
     } catch (err) {
-      setGeneralError(err.message || 'Failed to load your equipment listings.');
+      setGeneralError(err.message || t('common.serverError'));
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, [token, t]);
 
   useEffect(() => {
     if (isOpen) {
@@ -98,8 +100,9 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
         ? [{ id: null, imageUrl: item.imageUrl, isPrimary: true }]
         : [];
     setEditingItemPhotos(photos);
-    const activePrimary = photos.find((p) => p.isPrimary) || photos[0] || null;
-    setSelectedPrimaryPhotoId(activePrimary?.id || null);
+    const primary = photos.find((p) => p && (p.isPrimary || p.primary));
+    setSelectedPrimaryPhotoId(primary?.id || null);
+    setPhotoError('');
     setEditFormData({
       name: item.name || '',
       category: item.category || 'Tractors',
@@ -108,12 +111,12 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
       priceUnit: item.priceUnit || 'hour',
       bookingType: item.bookingType || 'instant',
       location: item.location || '',
-      imageUrl: item.imageUrl || activePrimary?.imageUrl || '',
-      isAvailable: item.isAvailable !== false,
+      imageUrl: item.imageUrl || '',
+      isAvailable: item.isAvailable !== undefined ? item.isAvailable : true,
     });
     setFieldErrors({});
     setGeneralError('');
-    setPhotoError('');
+    setSuccessMessage('');
   };
 
   const cancelEdit = () => {
@@ -133,50 +136,80 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
     }
   };
 
-  const handleUploadPhotos = async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length || !editingItem) return;
+  const handleUpdateSubmit = async (e) => {
+    e.preventDefault();
+    if (!editingItem) return;
+    setFieldErrors({});
+    setGeneralError('');
+    setIsUpdating(true);
+
+    const numericPrice = parseFloat(editFormData.price);
+    if (isNaN(numericPrice) || numericPrice <= 0) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        price: t('equipment.price'),
+      }));
+      setIsUpdating(false);
+      return;
+    }
+
+    try {
+      const payload = {
+        name: editFormData.name.trim(),
+        category: editFormData.category.trim(),
+        description: editFormData.description ? editFormData.description.trim() : null,
+        price: numericPrice,
+        priceUnit: editFormData.priceUnit,
+        bookingType: editFormData.bookingType,
+        location: editFormData.location.trim(),
+        imageUrl: editFormData.imageUrl ? editFormData.imageUrl.trim() : null,
+        isAvailable: editFormData.isAvailable,
+      };
+
+      const res = await updateEquipment(editingItem.id, payload, token);
+      const updatedListing = res.data;
+
+      setMyListings((prev) =>
+        prev.map((item) => (item.id === editingItem.id ? updatedListing : item))
+      );
+      setSuccessMessage(t('equipment.updateSuccess'));
+      setEditingItem(null);
+      if (onRefreshData) onRefreshData();
+    } catch (err) {
+      if (err.errors) {
+        setFieldErrors(err.errors);
+      }
+      setGeneralError(err.message || t('common.serverError'));
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleUploadNewPhotos = async (e) => {
+    if (!editingItem) return;
     setPhotoError('');
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
 
     if (editingItemPhotos.length + files.length > MAX_PHOTOS) {
-      setPhotoError(`Maximum ${MAX_PHOTOS} photos allowed per equipment listing.`);
+      setPhotoError(t('equipment.maxPhotosLimit', { max: MAX_PHOTOS }));
       return;
     }
 
     const allowedExts = ['.jpg', '.jpeg', '.png', '.webp'];
     for (const file of files) {
-      const lowerName = file.name ? file.name.toLowerCase() : '';
-      const hasValidExt = allowedExts.some((ext) => lowerName.endsWith(ext));
-
+      const lower = file.name ? file.name.toLowerCase() : '';
+      const hasValidExt = allowedExts.some((ext) => lower.endsWith(ext));
       if (!ALLOWED_TYPES.includes(file.type.toLowerCase()) || !hasValidExt) {
-        setPhotoError(`"${file.name}" has an unsupported format. Only JPEG, PNG, and WebP are allowed.`);
+        setPhotoError(t('equipment.unsupportedFormat', { name: file.name }));
         return;
       }
       if (file.size > MAX_FILE_SIZE) {
-        setPhotoError(`"${file.name}" exceeds the maximum 5MB size limit.`);
+        setPhotoError(t('equipment.fileTooLarge', { name: file.name }));
         return;
       }
       if (file.size === 0) {
-        setPhotoError(`"${file.name}" is empty. Please choose a valid photo.`);
-        return;
-      }
-
-      try {
-        await new Promise((resolve, reject) => {
-          const testUrl = URL.createObjectURL(file);
-          const img = new Image();
-          img.onload = () => {
-            URL.revokeObjectURL(testUrl);
-            resolve(true);
-          };
-          img.onerror = () => {
-            URL.revokeObjectURL(testUrl);
-            reject(new Error(`"${file.name}" contains invalid or unreadable image content.`));
-          };
-          img.src = testUrl;
-        });
-      } catch (err) {
-        setPhotoError(err.message);
+        setPhotoError(t('equipment.fileEmpty', { name: file.name }));
         return;
       }
     }
@@ -184,146 +217,66 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
     setPhotoActionLoading(true);
     try {
       const res = await uploadEquipmentPhotos(editingItem.id, files, token);
-      if (res?.data) {
-        setEditingItem(res.data);
-        const updatedPhotos = res.data.images || [];
-        setEditingItemPhotos(updatedPhotos);
-        const activePrimary = updatedPhotos.find((p) => p.isPrimary) || updatedPhotos[0] || null;
-        setSelectedPrimaryPhotoId(activePrimary?.id || null);
-        if (res.data.imageUrl || activePrimary?.imageUrl) {
-          setEditFormData((prev) => ({
-            ...prev,
-            imageUrl: res.data.imageUrl || activePrimary.imageUrl,
-          }));
-        }
-        setSuccessMessage('Photos uploaded successfully.');
-        await loadListings();
-        if (onRefreshData) onRefreshData();
+      const updatedItem = res.data;
+      if (updatedItem && updatedItem.images) {
+        setEditingItemPhotos(updatedItem.images);
+        const primary = updatedItem.images.find((img) => img && (img.isPrimary || img.primary));
+        setSelectedPrimaryPhotoId(primary?.id || null);
+        setMyListings((prev) =>
+          prev.map((item) => (item.id === editingItem.id ? updatedItem : item))
+        );
+        setSuccessMessage(t('equipment.photoUploadedSuccess'));
       }
     } catch (err) {
-      setPhotoError(err.message || 'Failed to upload photos.');
+      setPhotoError(err.message || t('common.serverError'));
     } finally {
       setPhotoActionLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const handleDeletePhoto = async (photoId) => {
-    if (!editingItem) return;
-    if (!photoId) {
-      // Legacy photo without database ID: clear imageUrl locally
-      setEditFormData((prev) => ({ ...prev, imageUrl: '' }));
-      setEditingItemPhotos([]);
-      setSelectedPrimaryPhotoId(null);
-      return;
-    }
-
-    setPhotoActionLoading(true);
-    setPhotoError('');
-    try {
-      const res = await deleteEquipmentPhoto(editingItem.id, photoId, token);
-      if (res?.data) {
-        setEditingItem(res.data);
-        const updatedPhotos = res.data.images || [];
-        setEditingItemPhotos(updatedPhotos);
-        const newPrimary = updatedPhotos.find((p) => p.isPrimary) || updatedPhotos[0] || null;
-        setSelectedPrimaryPhotoId(newPrimary?.id || null);
-        setEditFormData((prev) => ({
-          ...prev,
-          imageUrl: res.data.imageUrl || newPrimary?.imageUrl || '',
-        }));
-        setSuccessMessage('Photo removed successfully.');
-        await loadListings();
-        if (onRefreshData) onRefreshData();
-      }
-    } catch (err) {
-      setPhotoError(err.message || 'Failed to remove photo.');
-    } finally {
-      setPhotoActionLoading(false);
-    }
-  };
-
-  const handleSetPrimary = async (photoId) => {
+  const handleSetPrimaryPhoto = async (photoId) => {
     if (!editingItem || !photoId) return;
-
-    // Immediately update UI selection
-    setSelectedPrimaryPhotoId(photoId);
-    setEditingItemPhotos((prev) =>
-      prev.map((photo) => ({
-        ...photo,
-        isPrimary: photo.id === photoId,
-      }))
-    );
-    const chosen = editingItemPhotos.find((p) => p.id === photoId);
-    if (chosen) {
-      setEditFormData((prev) => ({ ...prev, imageUrl: chosen.imageUrl }));
-    }
-
     setPhotoActionLoading(true);
     setPhotoError('');
     try {
       const res = await setPrimaryEquipmentPhoto(editingItem.id, photoId, token);
-      if (res?.data) {
-        setEditingItem(res.data);
-        setEditingItemPhotos(res.data.images || []);
-        if (res.data.imageUrl) {
-          setEditFormData((prev) => ({ ...prev, imageUrl: res.data.imageUrl }));
-        }
-        setSuccessMessage('Primary photo updated.');
-        await loadListings();
-        if (onRefreshData) onRefreshData();
+      const updatedItem = res.data;
+      if (updatedItem && updatedItem.images) {
+        setEditingItemPhotos(updatedItem.images);
+        setSelectedPrimaryPhotoId(photoId);
+        setMyListings((prev) =>
+          prev.map((item) => (item.id === editingItem.id ? updatedItem : item))
+        );
+        setSuccessMessage(t('equipment.primaryPhotoSuccess'));
       }
     } catch (err) {
-      setPhotoError(err.message || 'Failed to update primary photo.');
+      setPhotoError(err.message || t('common.serverError'));
     } finally {
       setPhotoActionLoading(false);
     }
   };
 
-  const handleUpdateSubmit = async (e) => {
-    e.preventDefault();
-    setFieldErrors({});
-    setGeneralError('');
-
-    if (!editingItem) return;
-
-    const numericPrice = parseFloat(editFormData.price);
-    if (isNaN(numericPrice) || numericPrice <= 0) {
-      setFieldErrors((prev) => ({
-        ...prev,
-        price: 'Price must be a positive value greater than zero.',
-      }));
-      return;
-    }
-
-    setIsUpdating(true);
-
+  const handleDeletePhoto = async (photoId) => {
+    if (!editingItem || !photoId) return;
+    setPhotoActionLoading(true);
+    setPhotoError('');
     try {
-      const payload = {
-        name: editFormData.name.trim(),
-        category: editFormData.category.trim(),
-        description: editFormData.description ? editFormData.description.trim() : '',
-        price: numericPrice,
-        priceUnit: editFormData.priceUnit,
-        bookingType: editFormData.bookingType,
-        location: editFormData.location.trim(),
-        imageUrl: editFormData.imageUrl ? editFormData.imageUrl.trim() : null,
-        primaryImageId: selectedPrimaryPhotoId || (editingItemPhotos.find((p) => p.isPrimary)?.id) || null,
-        isAvailable: editFormData.isAvailable,
-      };
-
-      await updateEquipment(editingItem.id, payload, token);
-      setIsUpdating(false);
-      setSuccessMessage(`Listing "${payload.name}" updated successfully.`);
-      setEditingItem(null);
-      await loadListings();
-      if (onRefreshData) onRefreshData();
-    } catch (err) {
-      setIsUpdating(false);
-      if (err.errors) {
-        setFieldErrors(err.errors);
+      const res = await deleteEquipmentPhoto(editingItem.id, photoId, token);
+      const updatedItem = res.data;
+      if (updatedItem && updatedItem.images) {
+        setEditingItemPhotos(updatedItem.images);
+        const primary = updatedItem.images.find((img) => img && (img.isPrimary || img.primary));
+        setSelectedPrimaryPhotoId(primary?.id || null);
+        setMyListings((prev) =>
+          prev.map((item) => (item.id === editingItem.id ? updatedItem : item))
+        );
+        setSuccessMessage(t('equipment.photoDeletedSuccess'));
       }
-      setGeneralError(err.message || 'Failed to update equipment listing.');
+    } catch (err) {
+      setPhotoError(err.message || t('common.serverError'));
+    } finally {
+      setPhotoActionLoading(false);
     }
   };
 
@@ -332,64 +285,62 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
     setGeneralError('');
     try {
       await deleteEquipment(id, token);
-      setIsDeleting(false);
+      const deletedItem = myListings.find((item) => item.id === id);
+      setMyListings((prev) => prev.filter((item) => item.id !== id));
+      setSuccessMessage(t('equipment.deleteSuccess', { name: deletedItem ? deletedItem.name : '' }));
       setDeletingId(null);
-      setSuccessMessage('Equipment listing deleted successfully.');
-      await loadListings();
       if (onRefreshData) onRefreshData();
     } catch (err) {
+      setGeneralError(err.message || t('common.serverError'));
+    } finally {
       setIsDeleting(false);
-      setDeletingId(null);
-      setGeneralError(err.message || 'Failed to delete equipment listing.');
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">
       <div
-        className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]"
+        className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-emerald-700 px-6 py-5 text-white relative flex items-center justify-between">
+        <div className="bg-emerald-700 px-6 py-5 text-white flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold tracking-tight">My Equipment Listings</h2>
-            <p className="text-xs text-emerald-100 mt-1">
-              Manage, edit photos, update availability, or remove your machinery
+            <h2 className="text-xl font-bold tracking-tight">{t('equipment.myListings')}</h2>
+            <p className="text-xs text-emerald-100 mt-0.5">
+              {myListings.length} {t('equipment.myEquipment')}
             </p>
           </div>
-          <div className="flex items-center space-x-3 pr-8">
-            {onOpenAddEquipment && (
-              <button
-                type="button"
-                onClick={onOpenAddEquipment}
-                className="px-3.5 py-1.5 bg-white text-emerald-800 hover:bg-emerald-50 font-bold text-xs rounded-lg shadow-sm transition-colors flex items-center space-x-1 shrink-0"
-              >
-                <span>+ List New Equipment</span>
-              </button>
-            )}
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={onOpenAddEquipment}
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+            >
+              {t('nav.listNewEquipment')}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-emerald-100 hover:text-white p-1.5 rounded-full hover:bg-emerald-600/50 transition-colors cursor-pointer"
+              aria-label={t('common.close')}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute top-4 right-4 text-emerald-100 hover:text-white p-1 rounded-full hover:bg-emerald-600/50 transition-colors"
-            aria-label="Close modal"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
         </div>
 
-        {/* Scroll Body */}
+        {/* Content Body */}
         <div className="p-6 overflow-y-auto space-y-4">
           {successMessage && (
-            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-sm font-medium flex items-center justify-between">
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-xs font-semibold flex items-center justify-between">
               <span>{successMessage}</span>
               <button
                 type="button"
                 onClick={() => setSuccessMessage('')}
-                className="text-emerald-600 hover:text-emerald-800 text-xs font-bold"
+                className="text-emerald-700 hover:underline cursor-pointer"
               >
                 ✕
               </button>
@@ -397,12 +348,12 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
           )}
 
           {generalError && (
-            <div className="p-3.5 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm font-medium flex items-center justify-between">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-xs font-medium flex items-center justify-between">
               <span>{generalError}</span>
               <button
                 type="button"
                 onClick={() => setGeneralError('')}
-                className="text-red-600 hover:text-red-800 text-xs font-bold"
+                className="text-red-700 hover:underline cursor-pointer"
               >
                 ✕
               </button>
@@ -410,24 +361,24 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
           )}
 
           {editingItem ? (
-            /* EDIT FORM INLINE */
-            <form onSubmit={handleUpdateSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
+            /* Inline Edit Form */
+            <form onSubmit={handleUpdateSubmit} className="space-y-4 bg-slate-50 p-5 rounded-xl border border-slate-200">
               <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <h3 className="text-base font-bold text-slate-900">
-                  Editing: {editingItem.name}
+                  {t('equipment.editEquipment', { name: editingItem.name })}
                 </h3>
                 <button
                   type="button"
                   onClick={cancelEdit}
-                  className="text-xs font-semibold text-slate-500 hover:text-slate-800"
+                  className="text-xs font-semibold text-slate-500 hover:text-slate-800 cursor-pointer"
                 >
-                  Cancel Edit
+                  {t('equipment.cancelEdit')}
                 </button>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Equipment Name *
+                  {t('equipment.name')} *
                 </label>
                 <input
                   type="text"
@@ -443,15 +394,88 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
                 )}
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    {t('equipment.category')} *
+                  </label>
+                  <select
+                    name="category"
+                    required
+                    value={editFormData.category}
+                    onChange={handleEditChange}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {getCategoryLabel(cat)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    {t('equipment.location')} *
+                  </label>
+                  <input
+                    type="text"
+                    name="location"
+                    required
+                    maxLength={200}
+                    value={editFormData.location}
+                    onChange={handleEditChange}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    {t('equipment.price')} (₹) *
+                  </label>
+                  <input
+                    type="number"
+                    name="price"
+                    required
+                    step="0.01"
+                    min="0.01"
+                    value={editFormData.price}
+                    onChange={handleEditChange}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  {fieldErrors.price && (
+                    <p className="text-xs text-red-600 font-medium mt-1">{fieldErrors.price}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    {t('equipment.priceUnit')} *
+                  </label>
+                  <select
+                    name="priceUnit"
+                    required
+                    value={editFormData.priceUnit}
+                    onChange={handleEditChange}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="hour">{t('common.perHour')}</option>
+                    <option value="day">{t('common.perDay')}</option>
+                  </select>
+                </div>
+              </div>
+
               {/* Photos Management Section in Edit Mode */}
               <div className="border border-slate-200 rounded-xl p-4 bg-white space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
-                      Equipment Photos ({editingItemPhotos.length}/{MAX_PHOTOS})
+                      {t('equipment.photosCount', { count: editingItemPhotos.length })}
                     </label>
                     <p className="text-[11px] text-slate-500">
-                      Manage uploaded photos or add new ones (JPEG, PNG, WebP up to 5MB)
+                      {t('equipment.photosLimitDesc')}
                     </p>
                   </div>
                   {editingItemPhotos.length < MAX_PHOTOS && (
@@ -461,18 +485,18 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
                         type="file"
                         accept="image/jpeg,image/png,image/webp"
                         multiple
-                        onChange={handleUploadPhotos}
+                        onChange={handleUploadNewPhotos}
                         disabled={photoActionLoading}
                         className="hidden"
-                        id="edit-equipment-photo-upload"
+                        id="modal-edit-photo-upload"
                       />
                       <label
-                        htmlFor="edit-equipment-photo-upload"
+                        htmlFor="modal-edit-photo-upload"
                         className={`px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer flex items-center space-x-1 ${
                           photoActionLoading ? 'opacity-50 pointer-events-none' : ''
                         }`}
                       >
-                        <span>{photoActionLoading ? 'Uploading...' : '+ Upload Photos'}</span>
+                        <span>{photoActionLoading ? t('equipment.uploadingPhotos') : t('equipment.uploadPhotos')}</span>
                       </label>
                     </div>
                   )}
@@ -489,7 +513,7 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
                     {editingItemPhotos.map((photo, idx) => {
                       const photoUrl = resolveImageUrl(photo.imageUrl);
                       const isPhotoPrimary = photo.id
-                        ? (selectedPrimaryPhotoId === photo.id || Boolean(photo.isPrimary))
+                        ? selectedPrimaryPhotoId === photo.id || Boolean(photo.isPrimary)
                         : Boolean(photo.isPrimary);
                       return (
                         <div
@@ -513,18 +537,18 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
                           {isPhotoPrimary ? (
                             <span className="absolute top-1.5 left-1.5 bg-emerald-700 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-xs flex items-center gap-1">
                               <span>★</span>
-                              <span>Primary Photo</span>
+                              <span>{t('equipment.primaryPhoto')}</span>
                             </span>
                           ) : (
                             photo.id && (
                               <button
                                 type="button"
                                 disabled={photoActionLoading}
-                                onClick={() => handleSetPrimary(photo.id)}
-                                className="absolute top-1.5 left-1.5 bg-slate-900/80 hover:bg-emerald-700 text-white text-[10px] font-semibold px-2 py-0.5 rounded transition-colors disabled:opacity-50 shadow-xs"
-                                title="Click to set this as the main cover photo"
+                                onClick={() => handleSetPrimaryPhoto(photo.id)}
+                                className="absolute top-1.5 left-1.5 bg-slate-900/80 hover:bg-emerald-700 text-white text-[10px] font-semibold px-2 py-0.5 rounded transition-colors disabled:opacity-50 shadow-xs cursor-pointer"
+                                title={t('equipment.setAsPrimary')}
                               >
-                                Set as Primary
+                                {t('equipment.setAsPrimary')}
                               </button>
                             )
                           )}
@@ -534,9 +558,9 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
                             type="button"
                             disabled={photoActionLoading}
                             onClick={() => handleDeletePhoto(photo.id)}
-                            className="absolute top-1.5 right-1.5 bg-red-600 text-white hover:bg-red-700 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-colors shadow-xs disabled:opacity-50"
-                            aria-label="Remove photo"
-                            title="Remove photo"
+                            className="absolute top-1.5 right-1.5 bg-red-600 text-white hover:bg-red-700 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+                            aria-label={t('equipment.removePhoto')}
+                            title={t('equipment.removePhoto')}
                           >
                             ✕
                           </button>
@@ -546,275 +570,178 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
                   </div>
                 ) : (
                   <p className="text-xs text-slate-400 italic py-2">
-                    No photos currently uploaded for this equipment. Click "+ Upload Photos" above to add photos.
+                    {t('equipment.noPhotosUploaded')}
                   </p>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                    Category *
-                  </label>
-                  <select
-                    name="category"
-                    required
-                    value={editFormData.category}
-                    onChange={handleEditChange}
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                    Location *
-                  </label>
-                  <input
-                    type="text"
-                    name="location"
-                    required
-                    maxLength={200}
-                    value={editFormData.location}
-                    onChange={handleEditChange}
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                    Rental Price (₹) *
-                  </label>
-                  <input
-                    type="number"
-                    name="price"
-                    required
-                    step="0.01"
-                    min="0.01"
-                    value={editFormData.price}
-                    onChange={handleEditChange}
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                  {fieldErrors.price && (
-                    <p className="text-xs text-red-600 font-medium mt-1">{fieldErrors.price}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                    Price Unit *
-                  </label>
-                  <select
-                    name="priceUnit"
-                    required
-                    value={editFormData.priceUnit}
-                    onChange={handleEditChange}
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="hour">Per Hour</option>
-                    <option value="day">Per Day</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                    Booking Preference *
-                  </label>
-                  <select
-                    name="bookingType"
-                    required
-                    value={editFormData.bookingType}
-                    onChange={handleEditChange}
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="instant">Instant Booking</option>
-                    <option value="request">Request to Book</option>
-                    <option value="both">Both (Instant / Request)</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center pt-6">
-                  <label className="relative flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      name="isAvailable"
-                      checked={editFormData.isAvailable}
-                      onChange={handleEditChange}
-                      className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
-                    />
-                    <span className="text-sm font-semibold text-slate-800">Available for Rent</span>
-                  </label>
-                </div>
-              </div>
-
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Description (Optional)
+                  {t('equipment.description')}
                 </label>
                 <textarea
                   name="description"
-                  rows={2}
-                  maxLength={2000}
+                  rows="2"
                   value={editFormData.description}
                   onChange={handleEditChange}
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
+                ></textarea>
               </div>
 
-              <div className="pt-2 flex items-center justify-end space-x-3">
+              <div className="flex items-center space-x-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="isAvailableCheckboxModal"
+                  name="isAvailable"
+                  checked={editFormData.isAvailable}
+                  onChange={handleEditChange}
+                  className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                />
+                <label htmlFor="isAvailableCheckboxModal" className="text-xs font-semibold text-slate-800">
+                  {t('equipment.markAvailable')}
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={cancelEdit}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-100"
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 cursor-pointer"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={isUpdating}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-sm disabled:opacity-60"
+                  className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs disabled:opacity-50 cursor-pointer"
                 >
-                  {isUpdating ? 'Saving Changes...' : 'Update Listing'}
+                  {isUpdating ? t('common.saving') : t('common.saveChanges')}
                 </button>
               </div>
             </form>
           ) : (
-            /* LISTINGS TABLE/CARDS */
-            <div>
+            /* Listings Grid */
+            <>
               {isLoading ? (
-                <div className="py-12 text-center text-slate-500 space-y-2">
-                  <div className="animate-spin inline-block w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full"></div>
-                  <p className="text-sm">Loading your equipment listings...</p>
+                <div className="py-16 text-center text-slate-500 space-y-2">
+                  <div className="animate-spin inline-block w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full"></div>
+                  <p className="text-sm font-medium">{t('equipment.loadingEquipment')}</p>
                 </div>
               ) : myListings.length === 0 ? (
-                <div className="py-10 px-6 text-center bg-slate-50 border border-dashed border-slate-300 rounded-xl space-y-2">
-                  <span className="text-3xl">🚜</span>
-                  <h4 className="text-sm font-bold text-slate-800">No equipment listings yet</h4>
+                <div className="py-12 text-center bg-slate-50 border border-dashed border-slate-300 rounded-2xl space-y-3">
+                  <span className="text-4xl">🚜</span>
+                  <h4 className="text-base font-bold text-slate-900">{t('equipment.noEquipmentListingsYet')}</h4>
                   <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                    You haven't added any machinery to AgroRent yet. Use the "+ List New Equipment" button above to add a listing.
+                    {t('equipment.noEquipmentListingsDesc')}
                   </p>
+                  <button
+                    type="button"
+                    onClick={onOpenAddEquipment}
+                    className="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                  >
+                    {t('equipment.listNewEquipmentNow')}
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between bg-emerald-50/60 border border-emerald-100 rounded-xl px-4 py-2.5">
-                    <span className="text-xs font-semibold text-emerald-900">
-                      Total Listed Machinery: <strong>{myListings.length}</strong>
-                    </span>
-                  </div>
-                  {myListings.map((item) => {
-                    const primaryThumb = resolveImageUrl(item.imageUrl);
-                    return (
-                      <div
-                        key={item.id}
-                        className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:border-emerald-300 transition-colors"
-                      >
-                        <div className="flex items-start gap-3">
-                          {/* Primary Thumbnail */}
-                          <div className="w-16 h-16 rounded-lg bg-slate-100 overflow-hidden shrink-0 border border-slate-200 relative">
-                            {primaryThumb ? (
-                              <img
-                                src={primaryThumb}
-                                alt={item.name}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                  if (e.currentTarget.nextSibling) {
-                                    e.currentTarget.nextSibling.style.display = 'flex';
-                                  }
-                                }}
-                              />
-                            ) : null}
-                            <div
-                              className="w-full h-full flex items-center justify-center text-slate-400 text-xl"
-                              style={{ display: primaryThumb ? 'none' : 'flex' }}
-                            >
-                              🚜
-                            </div>
-                            {item.images && item.images.length > 1 && (
-                              <div className="absolute bottom-0 right-0 bg-slate-900/80 text-white text-[9px] font-bold px-1 rounded-tl">
-                                📷{item.images.length}
-                              </div>
-                            )}
+                  {myListings.map((item) => (
+                    <div
+                      key={item.id}
+                      className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs hover:border-emerald-300 transition-colors"
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shrink-0 bg-slate-100 flex items-center justify-center text-slate-400">
+                          {resolveImageUrl(item.imageUrl) ? (
+                            <img
+                              src={resolveImageUrl(item.imageUrl)}
+                              alt={item.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className="w-full h-full flex items-center justify-center text-slate-400 bg-slate-100"
+                            style={{ display: resolveImageUrl(item.imageUrl) ? 'none' : 'flex' }}
+                          >
+                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
                           </div>
-
-                          <div className="space-y-1">
-                            <div className="flex items-center space-x-2">
-                              <h4 className="text-base font-bold text-slate-900">{item.name}</h4>
-                              <span
-                                className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
-                                  item.isAvailable
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : 'bg-rose-50 text-rose-700 border-rose-200'
-                                }`}
-                              >
-                                {item.isAvailable ? 'Available' : 'Unavailable'}
-                              </span>
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-                              <span>🏷️ {item.category}</span>
-                              <span>💰 ₹{item.price} / {item.priceUnit}</span>
-                              <span>📍 {item.location}</span>
-                              <span>⚡ {item.bookingType}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Action buttons */}
-                        <div className="flex items-center space-x-2 shrink-0">
-                          {deletingId === item.id ? (
-                            <div className="flex items-center space-x-2 bg-red-50 p-2 rounded-lg border border-red-200">
-                              <span className="text-xs text-red-800 font-semibold">Delete?</span>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteConfirm(item.id)}
-                                disabled={isDeleting}
-                                className="px-2.5 py-1 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded transition-colors"
-                              >
-                                {isDeleting ? 'Deleting...' : 'Yes, Delete'}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDeletingId(null)}
-                                className="px-2.5 py-1 text-xs font-semibold text-slate-600 bg-white border border-slate-300 rounded"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          ) : (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => startEdit(item)}
-                                className="px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors"
-                              >
-                                Edit & Photos
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDeletingId(item.id)}
-                                className="px-3 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors"
-                              >
-                                Delete
-                              </button>
-                            </>
+                          {item.images && item.images.length > 1 && (
+                            <span className="absolute bottom-0 right-0 bg-slate-900/80 text-white text-[9px] font-bold px-1 rounded-tl">
+                              📷{item.images.length}
+                            </span>
                           )}
                         </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center space-x-2 flex-wrap">
+                            <h4 className="text-base font-bold text-slate-900">{item.name}</h4>
+                            <span
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                                item.isAvailable
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : 'bg-rose-50 text-rose-700 border-rose-200'
+                              }`}
+                            >
+                              {item.isAvailable ? t('equipment.available') : t('equipment.unavailable')}
+                            </span>
+                          </div>
+                          <div className="text-xs text-slate-500 space-y-0.5">
+                            <p>🏷️ {item.category ? getCategoryLabel(item.category) : ''} • 📍 {item.location}</p>
+                            <p className="font-semibold text-emerald-700">
+                              {formatCurrency(item.price)} / {item.priceUnit === 'day' ? t('common.unitDay') : t('common.unitHour')}
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                    );
-                  })}
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center space-x-2 shrink-0 self-end sm:self-center">
+                        {deletingId === item.id ? (
+                          <div className="flex items-center space-x-2 bg-red-50 p-1.5 rounded-lg border border-red-200">
+                            <span className="text-xs text-red-800 font-semibold">{t('equipment.deleteQuestion')}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteConfirm(item.id)}
+                              disabled={isDeleting}
+                              className="px-2.5 py-1 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded cursor-pointer"
+                            >
+                              {isDeleting ? t('equipment.deleting') : t('equipment.yesDelete')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeletingId(null)}
+                              className="px-2 py-1 text-xs font-semibold text-slate-600 bg-white border border-slate-300 rounded cursor-pointer"
+                            >
+                              {t('equipment.noCancel')}
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => startEdit(item)}
+                              className="px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors cursor-pointer"
+                            >
+                              {t('equipment.editListing')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeletingId(item.id)}
+                              className="px-3 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors cursor-pointer"
+                            >
+                              {t('common.delete')}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
-            </div>
+            </>
           )}
         </div>
       </div>

@@ -1,29 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { fetchEquipmentRatingSummary } from '../../../services/reviewService';
 import { resolveImageUrl } from '../../../services/equipmentService';
+import { useLanguage } from '../../../context/LanguageContext';
 
 /**
  * EquipmentCard Component
- * Reusable card to display farm equipment information with action buttons and equipment rating.
- * 
- * Props:
- * @param {number} id - Equipment ID
- * @param {number} equipmentId - Alternative prop for equipment ID
- * @param {string} image - URL or path of the equipment image
- * @param {Array} images - Array of uploaded equipment photo objects
- * @param {string} name - Name of the equipment
- * @param {number|string} price - Rental price amount
- * @param {string} priceUnit - Rental duration unit ('hour' | 'day')
- * @param {string} bookingType - Booking mode ('instant' | 'request' | 'both')
- * @param {string} distance - Distance from user (e.g. '4.2 km' or '4.2 km away')
- * @param {string} category - Equipment category
- * @param {number} ownerId - Owner ID
- * @param {string} ownerName - Owner full name
- * @param {number} rating - Equipment average rating
- * @param {number} totalReviews - Equipment review count
- * @param {Object} ratingSummary - Optional pre-loaded equipment rating summary
- * @param {function} onSelect - Callback when clicking card or Book button
- * @param {function} onViewReviews - Callback when clicking rating badge
+ * Reusable card to display farm equipment information with action buttons,
+ * equipment rating, and multilingual translation support.
  */
 const EquipmentCard = ({
   id,
@@ -47,6 +30,7 @@ const EquipmentCard = ({
   onSelect,
   onViewReviews,
 }) => {
+  const { t, formatCurrency, formatNumber, getCategoryLabel } = useLanguage();
   const targetEquipmentId = id || equipmentId;
   const propRating = rating !== undefined && rating !== null ? rating : ownerRating;
   const propTotalReviews =
@@ -55,12 +39,12 @@ const EquipmentCard = ({
 
   const [ratingSummary, setRatingSummary] = useState(
     activeInitialSummary ||
-      (propRating !== undefined && propRating !== null
-        ? {
-            averageRating: Number(propRating) || 0.0,
-            totalReviews: Number(propTotalReviews) || 0,
-          }
-        : null)
+    (propRating !== undefined && propRating !== null
+      ? {
+        averageRating: Number(propRating) || 0.0,
+        totalReviews: Number(propTotalReviews) || 0,
+      }
+      : null)
   );
 
   useEffect(() => {
@@ -111,7 +95,7 @@ const EquipmentCard = ({
               setRatingSummary(res.data);
             }
           })
-          .catch(() => {});
+          .catch(() => { });
       }
     };
 
@@ -120,16 +104,15 @@ const EquipmentCard = ({
       window.removeEventListener('agrorent:review-submitted', handleReviewSubmitted);
     };
   }, [targetEquipmentId]);
-  // Format price with Indian Rupee symbol and commas if numeric
+
+  // Format price with locale currency
   const formattedPrice =
-    typeof price === 'number'
-      ? `₹${price.toLocaleString('en-IN')}`
-      : price
-      ? `₹${price}`
+    typeof price === 'number' || (!isNaN(Number(price)) && price !== '')
+      ? formatCurrency(price)
       : null;
 
   // Format price unit string
-  const normalizedUnit = priceUnit?.toLowerCase() === 'day' ? 'day' : 'hour';
+  const normalizedUnit = priceUnit?.toLowerCase() === 'day' ? t('common.unitDay') : t('common.unitHour');
 
   // Map booking type prop to badge label and styling
   const getBookingTypeBadge = (type) => {
@@ -137,19 +120,19 @@ const EquipmentCard = ({
     switch (type.toLowerCase()) {
       case 'instant':
         return {
-          label: '⚡ Instant Booking',
+          label: t('equipment.instantBookingBadge'),
           styles: 'bg-emerald-50 text-emerald-700 border-emerald-200',
         };
       case 'request':
         return {
-          label: '📝 Request to Book',
+          label: t('equipment.requestToBookBadge'),
           styles: 'bg-amber-50 text-amber-700 border-amber-200',
         };
       case 'both':
       case 'instant+request':
       case 'instant + request':
         return {
-          label: '⚡ Instant / Request',
+          label: t('equipment.bothBookingBadge'),
           styles: 'bg-indigo-50 text-indigo-700 border-indigo-200',
         };
       default:
@@ -164,15 +147,12 @@ const EquipmentCard = ({
 
   // Format distance display
   const formattedDistance = distance
-    ? distance.toString().includes('away')
+    ? distance.toString().includes('away') || distance.toString().includes(t('equipment.away'))
       ? distance
-      : `${distance} away`
+      : `${distance} ${t('equipment.away')}`
     : null;
-  // Resolve primary image to display:
-  // 1. Explicitly designated primary photo in images array (isPrimary === true)
-  // 2. Fallback to image prop (equipment.imageUrl)
-  // 3. Fallback to first photo in images array (deterministic)
-  // 4. Null (clean fallback SVG placeholder)
+
+  // Resolve primary image to display
   const primaryFromList = Array.isArray(images) && images.length > 0
     ? images.find((img) => img && (img.isPrimary === true || img.primary === true))
     : null;
@@ -188,16 +168,16 @@ const EquipmentCard = ({
   const resolvedCardImage = resolveImageUrl(rawDisplayUrl);
 
   return (
-    <div 
+    <div
       onClick={onSelect}
-      className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col w-full group cursor-pointer border-slate-200 hover:border-emerald-500/50"
+      className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col w-full group cursor-pointer hover:border-emerald-500/50"
     >
       {/* 1. Equipment Image */}
       <div className="relative w-full h-48 sm:h-52 bg-slate-100 overflow-hidden">
         {resolvedCardImage ? (
           <img
             src={resolvedCardImage}
-            alt={name || 'Farm equipment'}
+            alt={name || t('equipment.name')}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             onError={(e) => {
               e.currentTarget.style.display = 'none';
@@ -226,11 +206,11 @@ const EquipmentCard = ({
             />
           </svg>
         </div>
-        
+
         {/* Category Pill Tag on Top Left */}
         {category && (
           <div className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded-full">
-            {category}
+            {getCategoryLabel(category)}
           </div>
         )}
 
@@ -246,9 +226,9 @@ const EquipmentCard = ({
       {/* Card Content Body */}
       <div className="p-4 sm:p-5 flex flex-col flex-grow justify-between space-y-3">
         <div className="space-y-2">
-          {/* Equipment Name */}
+          {/* Equipment Name (User-generated content preserved!) */}
           <h3 className="text-base sm:text-lg font-bold text-slate-900 line-clamp-1 tracking-tight group-hover:text-emerald-700 transition-colors">
-            {name || 'Equipment Name'}
+            {name || t('equipment.name')}
           </h3>
 
           {/* Rental Price */}
@@ -261,7 +241,7 @@ const EquipmentCard = ({
           {/* Owner & Rating Row */}
           <div className="flex items-center justify-between text-xs text-slate-600 pt-1">
             <span className="truncate max-w-[150px]">
-              👤 {ownerName || 'Verified Owner'}
+              👤 {ownerName || t('equipment.verifiedOwner')}
             </span>
             {ratingSummary && ratingSummary.totalReviews > 0 ? (
               <span
@@ -271,12 +251,15 @@ const EquipmentCard = ({
                   else if (onSelect) onSelect(true);
                 }}
                 className="inline-flex items-center gap-1 font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-md text-[11px] shrink-0 cursor-pointer transition-colors"
-                title="Click to view equipment reviews"
+                title={t('equipment.clickToViewReviews')}
               >
                 <span className="text-amber-500">★</span>
                 <span>{ratingSummary.averageRating.toFixed(1)}</span>
                 <span className="text-slate-500 font-normal">
-                  ({ratingSummary.totalReviews} {ratingSummary.totalReviews === 1 ? 'review' : 'reviews'})
+                  ({formatNumber(ratingSummary.totalReviews)}{' '}
+                  {ratingSummary.totalReviews === 1
+                    ? t('equipment.reviewSingle')
+                    : t('equipment.reviewPlural')})
                 </span>
               </span>
             ) : (
@@ -287,10 +270,10 @@ const EquipmentCard = ({
                   else if (onSelect) onSelect(true);
                 }}
                 className="inline-flex items-center gap-1 text-[11px] text-slate-500 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md shrink-0 cursor-pointer transition-colors"
-                title="Click to view equipment reviews"
+                title={t('equipment.clickToViewReviews')}
               >
                 <span className="text-slate-400">★</span>
-                <span>No ratings yet</span>
+                <span>{t('equipment.noRatingsYet')}</span>
               </span>
             )}
           </div>
@@ -323,9 +306,9 @@ const EquipmentCard = ({
               e.stopPropagation();
               if (onSelect) onSelect();
             }}
-            className="w-full bg-slate-900 group-hover:bg-emerald-600 text-white text-xs sm:text-sm font-semibold py-2.5 px-4 rounded-xl transition-all duration-200 shadow-xs flex items-center justify-center space-x-1.5"
+            className="w-full bg-slate-900 group-hover:bg-emerald-600 text-white text-xs sm:text-sm font-semibold py-2.5 px-4 rounded-xl transition-all duration-200 shadow-xs flex items-center justify-center space-x-1.5 cursor-pointer"
           >
-            <span>Rent Equipment</span>
+            <span>{t('equipment.rentEquipment')}</span>
             <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
             </svg>
@@ -337,4 +320,3 @@ const EquipmentCard = ({
 };
 
 export default EquipmentCard;
-

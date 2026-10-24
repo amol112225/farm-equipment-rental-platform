@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
+import { useLanguage } from '../../../context/LanguageContext';
 
 /**
  * AuthModal Component
- * Interactive modal dialog for Farmer Login and Registration.
+ * Interactive modal dialog for Farmer Login and Registration with multilingual support.
  * Handles form validation, field-level backend errors, and mode switching.
  */
 const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
   if (!isOpen) return null;
 
   const { login, register } = useAuth();
+  const { t } = useLanguage();
   const [mode, setMode] = useState(initialMode); // 'login' | 'register'
 
   // Login Form State
@@ -64,7 +66,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
 
     try {
       await login(loginEmail, loginPassword);
-      setSuccessMessage('Login successful!');
+      setSuccessMessage(t('auth.loginSuccess'));
       setTimeout(() => {
         setIsSubmitting(false);
         onClose();
@@ -74,7 +76,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
       if (err.errors) {
         setFieldErrors(err.errors);
       }
-      setGeneralError(err.message || 'Invalid email or password');
+      setGeneralError(err.message || t('auth.invalidCredentials'));
     }
   };
 
@@ -86,7 +88,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
     try {
       await register(regData);
       setIsSubmitting(false);
-      setSuccessMessage('Registration successful! You can now log in.');
+      setSuccessMessage(t('auth.registerSuccess'));
       setMode('login');
       setLoginEmail(regData.email);
       setLoginPassword('');
@@ -95,7 +97,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
       if (err.errors) {
         setFieldErrors(err.errors);
       }
-      setGeneralError(err.message || 'Registration failed. Please check your details.');
+      setGeneralError(err.message || t('auth.registrationFailed'));
     }
   };
 
@@ -110,20 +112,20 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 text-emerald-100 hover:text-white p-1 rounded-full hover:bg-emerald-600/50 transition-colors"
-            aria-label="Close dialog"
+            className="absolute top-4 right-4 text-emerald-100 hover:text-white p-1 rounded-full hover:bg-emerald-600/50 transition-colors cursor-pointer"
+            aria-label={t('auth.closeDialog')}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
           <h2 className="text-xl font-bold tracking-tight">
-            {mode === 'login' ? 'Farmer Login' : 'Farmer Registration'}
+            {mode === 'login' ? t('auth.loginTitle') : t('auth.registerTitle')}
           </h2>
           <p className="text-xs text-emerald-100 mt-1">
             {mode === 'login'
-              ? 'Access your rental account and manage equipment'
-              : 'Join AgroRent to rent and list agricultural machinery'}
+              ? t('auth.loginSubtitle')
+              : t('auth.registerSubtitle')}
           </p>
         </div>
 
@@ -132,22 +134,22 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
           <button
             type="button"
             onClick={() => switchMode('login')}
-            className={`flex-1 py-3 text-sm font-semibold transition-colors border-b-2 ${mode === 'login'
+            className={`flex-1 py-3 text-sm font-semibold transition-colors border-b-2 cursor-pointer ${mode === 'login'
                 ? 'border-emerald-600 text-emerald-700 bg-white'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
           >
-            Login
+            {t('auth.tabLogin')}
           </button>
           <button
             type="button"
             onClick={() => switchMode('register')}
-            className={`flex-1 py-3 text-sm font-semibold transition-colors border-b-2 ${mode === 'register'
+            className={`flex-1 py-3 text-sm font-semibold transition-colors border-b-2 cursor-pointer ${mode === 'register'
                 ? 'border-emerald-600 text-emerald-700 bg-white'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
           >
-            Register
+            {t('auth.tabRegister')}
           </button>
         </div>
 
@@ -178,7 +180,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Email Address *
+                  {t('auth.email')}
                 </label>
                 <input
                   type="email"
@@ -188,7 +190,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                     setLoginEmail(e.target.value);
                     if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: null }));
                   }}
-                  placeholder="farmer@example.com"
+                  placeholder={t('auth.emailPlaceholder')}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors"
                 />
                 {fieldErrors.email && (
@@ -198,7 +200,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Password *
+                  {t('auth.password')}
                 </label>
                 <input
                   type="password"
@@ -208,7 +210,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                     setLoginPassword(e.target.value);
                     if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: null }));
                   }}
-                  placeholder="••••••••"
+                  placeholder={t('auth.passwordPlaceholder')}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors"
                 />
                 {fieldErrors.password && (
@@ -220,7 +222,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shadow-sm transition-all duration-200 disabled:opacity-60 flex items-center justify-center space-x-2"
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shadow-sm transition-all duration-200 disabled:opacity-60 flex items-center justify-center space-x-2 cursor-pointer"
                 >
                   {isSubmitting ? (
                     <>
@@ -228,23 +230,23 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      <span>Authenticating...</span>
+                      <span>{t('auth.authenticating')}</span>
                     </>
                   ) : (
-                    <span>Log In to Account</span>
+                    <span>{t('auth.loginButton')}</span>
                   )}
                 </button>
               </div>
 
               <div className="text-center pt-2">
                 <p className="text-xs text-slate-500">
-                  Don't have a farmer account?{' '}
+                  {t('auth.dontHaveAccount')}{' '}
                   <button
                     type="button"
                     onClick={() => switchMode('register')}
-                    className="text-emerald-700 font-semibold hover:underline"
+                    className="text-emerald-700 font-semibold hover:underline cursor-pointer"
                   >
-                    Register here
+                    {t('auth.registerHere')}
                   </button>
                 </p>
               </div>
@@ -254,7 +256,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
             <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Full Name *
+                  {t('auth.fullName')}
                 </label>
                 <input
                   type="text"
@@ -262,7 +264,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                   required
                   value={regData.fullName}
                   onChange={handleRegChange}
-                  placeholder="Ramesh Kumar"
+                  placeholder={t('auth.fullNamePlaceholder')}
                   className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors"
                 />
                 {fieldErrors.fullName && (
@@ -273,7 +275,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                    Email Address *
+                    {t('auth.email')}
                   </label>
                   <input
                     type="email"
@@ -291,7 +293,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                    Phone Number *
+                    {t('auth.phone')}
                   </label>
                   <input
                     type="tel"
@@ -299,7 +301,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                     required
                     value={regData.phone}
                     onChange={handleRegChange}
-                    placeholder="9876543210"
+                    placeholder={t('auth.phonePlaceholder')}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors"
                   />
                   {fieldErrors.phone && (
@@ -310,7 +312,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Password (Min 8 characters) *
+                  {t('auth.passwordMin')}
                 </label>
                 <input
                   type="password"
@@ -318,7 +320,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                   required
                   value={regData.password}
                   onChange={handleRegChange}
-                  placeholder="••••••••"
+                  placeholder={t('auth.passwordPlaceholder')}
                   className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors"
                 />
                 {fieldErrors.password && (
@@ -329,7 +331,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                    Village *
+                    {t('auth.village')}
                   </label>
                   <input
                     type="text"
@@ -337,7 +339,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                     required
                     value={regData.village}
                     onChange={handleRegChange}
-                    placeholder="Khed"
+                    placeholder={t('auth.villagePlaceholder')}
                     className="w-full px-2.5 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors"
                   />
                   {fieldErrors.village && (
@@ -347,7 +349,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                    District *
+                    {t('auth.district')}
                   </label>
                   <input
                     type="text"
@@ -355,7 +357,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                     required
                     value={regData.district}
                     onChange={handleRegChange}
-                    placeholder="Pune"
+                    placeholder={t('auth.districtPlaceholder')}
                     className="w-full px-2.5 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors"
                   />
                   {fieldErrors.district && (
@@ -365,7 +367,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                    State *
+                    {t('auth.state')}
                   </label>
                   <input
                     type="text"
@@ -373,7 +375,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                     required
                     value={regData.state}
                     onChange={handleRegChange}
-                    placeholder="Maharashtra"
+                    placeholder={t('auth.statePlaceholder')}
                     className="w-full px-2.5 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors"
                   />
                   {fieldErrors.state && (
@@ -386,7 +388,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shadow-sm transition-all duration-200 disabled:opacity-60 flex items-center justify-center space-x-2"
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shadow-sm transition-all duration-200 disabled:opacity-60 flex items-center justify-center space-x-2 cursor-pointer"
                 >
                   {isSubmitting ? (
                     <>
@@ -394,23 +396,23 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      <span>Creating Account...</span>
+                      <span>{t('auth.creatingAccount')}</span>
                     </>
                   ) : (
-                    <span>Register Farmer Account</span>
+                    <span>{t('auth.registerButton')}</span>
                   )}
                 </button>
               </div>
 
               <div className="text-center pt-1">
                 <p className="text-xs text-slate-500">
-                  Already registered?{' '}
+                  {t('auth.alreadyRegistered')}{' '}
                   <button
                     type="button"
                     onClick={() => switchMode('login')}
-                    className="text-emerald-700 font-semibold hover:underline"
+                    className="text-emerald-700 font-semibold hover:underline cursor-pointer"
                   >
-                    Log in here
+                    {t('auth.loginHere')}
                   </button>
                 </p>
               </div>

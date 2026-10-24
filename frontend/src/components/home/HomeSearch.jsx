@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
+import { useLanguage } from '../../context/LanguageContext';
 
 /**
  * HomeSearch Component
  * Main search interface supporting keyword search, manual location input,
- * explicit browser geolocation detection, and equipment categories.
+ * explicit browser geolocation detection, and multilingual support.
  */
 const HomeSearch = ({
   searchTerm = '',
@@ -14,17 +15,8 @@ const HomeSearch = ({
   onCategoryChange = () => { },
   onResetFilters = () => { },
 }) => {
+  const { t } = useLanguage();
   const [geoStatus, setGeoStatus] = useState(null);
-
-  const categories = [
-    'All Categories',
-    'Tractors',
-    'Rotavators',
-    'Cultivators',
-    'Seed Drills',
-    'Harvesters',
-    'Sprayers',
-  ];
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -35,30 +27,33 @@ const HomeSearch = ({
     if (!navigator.geolocation) {
       setGeoStatus({
         type: 'error',
-        message: 'Geolocation is not supported by your browser. Please enter your location manually.',
+        message: t('search.geoNotSupported'),
       });
       return;
     }
 
-    setGeoStatus({ type: 'loading', message: 'Detecting location...' });
+    setGeoStatus({ type: 'loading', message: t('search.detectingLocation') });
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        onLocationChange('Current Location (Detected)');
+        onLocationChange(t('search.currentLocationDetected'));
         setGeoStatus({
           type: 'success',
-          message: `📍 Location detected successfully (${position.coords.latitude.toFixed(2)}, ${position.coords.longitude.toFixed(2)}).`,
+          message: t('search.locationDetected', {
+            lat: position.coords.latitude.toFixed(2),
+            lng: position.coords.longitude.toFixed(2),
+          }),
         });
         setTimeout(() => setGeoStatus(null), 4000);
       },
       (error) => {
-        let msg = 'Unable to retrieve location.';
+        let msg = t('search.geoError');
         if (error.code === error.PERMISSION_DENIED) {
-          msg = 'Location permission denied. Please enter your village/town manually below.';
+          msg = t('search.geoPermissionDenied');
         } else if (error.code === error.POSITION_UNAVAILABLE) {
-          msg = 'Location information unavailable. Please enter location manually.';
+          msg = t('search.geoUnavailable');
         } else if (error.code === error.TIMEOUT) {
-          msg = 'Location request timed out. Please enter location manually.';
+          msg = t('search.geoTimeout');
         }
         setGeoStatus({ type: 'error', message: msg });
         setTimeout(() => setGeoStatus(null), 5000);
@@ -86,29 +81,29 @@ const HomeSearch = ({
               type="text"
               value={searchTerm}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Search equipment..."
+              placeholder={t('search.placeholder')}
               className="w-full bg-transparent text-slate-900 placeholder-slate-400 text-sm focus:outline-none px-2 py-1.5"
             />
             {searchTerm && (
               <button
                 type="button"
                 onClick={() => onSearchChange('')}
-                className="text-slate-400 hover:text-slate-600 p-1"
-                aria-label="Clear search"
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                aria-label={t('search.clearSearch')}
               >
                 ✕
               </button>
             )}
             <button
               type="submit"
-              className="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-6 py-2 rounded-lg transition-colors"
+              className="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-6 py-2 rounded-lg transition-colors cursor-pointer"
             >
-              Search
+              {t('search.searchButton')}
             </button>
           </div>
         </form>
 
-        {/* Area 2: Location Selection (Visually Independent Section Below Search Bar) */}
+        {/* Area 2: Location Selection */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center bg-slate-50 border border-slate-200 rounded-xl p-3 gap-3">
           <div className="flex items-center flex-1 bg-white border border-slate-300 rounded-lg px-3 py-2">
             <svg
@@ -124,15 +119,15 @@ const HomeSearch = ({
               type="text"
               value={locationSearch}
               onChange={(e) => onLocationChange(e.target.value)}
-              placeholder="Select Location (Village, District, Town)..."
+              placeholder={t('search.locationPlaceholder')}
               className="w-full bg-transparent text-slate-900 placeholder-slate-400 text-sm focus:outline-none"
             />
             {locationSearch && (
               <button
                 type="button"
                 onClick={() => onLocationChange('')}
-                className="text-slate-400 hover:text-slate-600 p-1 mr-1"
-                aria-label="Clear location filter"
+                className="text-slate-400 hover:text-slate-600 p-1 mr-1 cursor-pointer"
+                aria-label={t('search.clearLocation')}
               >
                 ✕
               </button>
@@ -142,10 +137,10 @@ const HomeSearch = ({
           <button
             type="button"
             onClick={handleRequestLocation}
-            title="Detect current location via browser GPS"
-            className="shrink-0 text-slate-700 hover:text-emerald-700 bg-white hover:bg-emerald-50 border border-slate-300 px-4 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5"
+            title={t('search.useCurrentLocation')}
+            className="shrink-0 text-slate-700 hover:text-emerald-700 bg-white hover:bg-emerald-50 border border-slate-300 px-4 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
           >
-            <span>📍 Use Current Location</span>
+            <span>{t('search.useCurrentLocation')}</span>
           </button>
         </div>
 
@@ -164,7 +159,7 @@ const HomeSearch = ({
             <button
               type="button"
               onClick={() => setGeoStatus(null)}
-              className="font-bold text-slate-500 hover:text-slate-700 ml-2"
+              className="font-bold text-slate-500 hover:text-slate-700 ml-2 cursor-pointer"
             >
               ✕
             </button>
@@ -177,5 +172,3 @@ const HomeSearch = ({
 };
 
 export default HomeSearch;
-
-
