@@ -4,6 +4,7 @@ import com.agrorent.backend.service.ImageStorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -21,20 +22,29 @@ import java.util.UUID;
  * Saves photos to a configurable directory and serves them via Spring WebMvc ResourceHandler.
  */
 @Service("localStorageService")
+@Lazy
 public class LocalStorageService implements ImageStorageService {
 
     private static final Logger log = LoggerFactory.getLogger(LocalStorageService.class);
 
     private final Path uploadLocation;
+    private volatile boolean initialized = false;
 
     public LocalStorageService(@Value("${agrorent.storage.local.upload-dir:uploads/equipment}") String uploadDir) {
         this.uploadLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
-        try {
-            Files.createDirectories(this.uploadLocation);
-            log.info("LocalStorageService initialized. Storage directory: {}", this.uploadLocation);
-        } catch (IOException e) {
-            log.error("Could not initialize local storage directory: {}", this.uploadLocation, e);
-            throw new IllegalStateException("Could not create local storage directory", e);
+        ensureDirectoryExists();
+    }
+
+    private synchronized void ensureDirectoryExists() {
+        if (!initialized) {
+            try {
+                Files.createDirectories(this.uploadLocation);
+                log.info("LocalStorageService initialized. Storage directory: {}", this.uploadLocation);
+                initialized = true;
+            } catch (IOException e) {
+                log.error("Could not initialize local storage directory: {}", this.uploadLocation, e);
+                throw new IllegalStateException("Could not create local storage directory", e);
+            }
         }
     }
 

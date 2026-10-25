@@ -1,7 +1,9 @@
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\test\java\com\agrorent\backend\controller\EquipmentControllerTest.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\test\java\com\agrorent\backend\security\JwtTokenProviderTest.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\test\java\com\agrorent\backend\service\BookingServiceImplTest.java
+A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\test\java\com\agrorent\backend\service\CloudinaryImageStorageServiceTest.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\test\java\com\agrorent\backend\service\EquipmentPhotoServiceTest.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\test\java\com\agrorent\backend\service\EquipmentServiceImplTest.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\test\java\com\agrorent\backend\service\FileValidationServiceTest.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\test\java\com\agrorent\backend\service\ReviewServiceImplTest.java
+A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\test\java\com\agrorent\backend\service\StorageServiceImplTest.java

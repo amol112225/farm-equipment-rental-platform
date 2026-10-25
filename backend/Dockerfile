@@ -22,10 +22,14 @@ WORKDIR /app
 
 # Create unprivileged system user for process isolation
 RUN addgroup -S agrorent && adduser -S agrorent -G agrorent
+
+# Pre-create uploads directory and set permissions for unprivileged user
+RUN mkdir -p /app/uploads/equipment && chown -R agrorent:agrorent /app
+
 USER agrorent:agrorent
 
 # Copy the built Spring Boot runnable JAR from builder stage
-COPY --from=builder /workspace/target/*.jar app.jar
+COPY --from=builder --chown=agrorent:agrorent /workspace/target/*.jar app.jar
 
 # Dynamic port binding (Render injects PORT at container runtime, defaults to 8080)
 ENV PORT=8080
