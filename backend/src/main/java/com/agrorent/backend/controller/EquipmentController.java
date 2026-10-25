@@ -29,7 +29,7 @@ import java.util.List;
  * Controller handling Equipment Management REST APIs, including photo uploads.
  */
 @RestController
-@RequestMapping("/api/equipment")
+@RequestMapping({"/api/equipment", "/equipment"})
 public class EquipmentController {
 
     private final EquipmentService equipmentService;

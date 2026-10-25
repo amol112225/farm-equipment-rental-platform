@@ -5,9 +5,13 @@
  * Uses Vite environment variable VITE_API_BASE_URL with fallback to local development.
  */
 
-export const API_BASE_URL = (
+const rawBaseUrl = (
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
-).replace(/\/+$/, '');
+).trim().replace(/\/+$/, '');
+
+export const API_BASE_URL = rawBaseUrl.endsWith('/api')
+  ? rawBaseUrl
+  : `${rawBaseUrl}/api`;
 
 /**
  * Standardized HTTP response parser and error transformer.
