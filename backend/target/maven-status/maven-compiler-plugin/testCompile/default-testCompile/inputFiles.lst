@@ -1,4 +1,5 @@
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\test\java\com\agrorent\backend\controller\EquipmentControllerTest.java
+A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\test\java\com\agrorent\backend\security\CorsConfigurationTest.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\test\java\com\agrorent\backend\security\JwtTokenProviderTest.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\test\java\com\agrorent\backend\service\BookingServiceImplTest.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\test\java\com\agrorent\backend\service\CloudinaryImageStorageServiceTest.java
