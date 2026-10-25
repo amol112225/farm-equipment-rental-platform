@@ -2,3 +2,6 @@ com\agrorent\backend\security\JwtTokenProviderTest.class
 com\agrorent\backend\service\EquipmentServiceImplTest.class
 com\agrorent\backend\service\ReviewServiceImplTest.class
 com\agrorent\backend\service\BookingServiceImplTest.class
+com\agrorent\backend\service\EquipmentPhotoServiceTest.class
+com\agrorent\backend\service\FileValidationServiceTest.class
+com\agrorent\backend\controller\EquipmentControllerTest.class
