@@ -16,8 +16,6 @@ const DEFAULT_FALLBACK_IMAGE =
  * Fully translated with LanguageContext.
  */
 const MyBookingsModal = ({ isOpen, onClose }) => {
-  if (!isOpen) return null;
-
   const { token, isAuthenticated } = useAuth();
   const { t, formatCurrency, formatDateTime, getBookingStatusLabel, getCategoryLabel } = useLanguage();
 
@@ -112,6 +110,8 @@ const MyBookingsModal = ({ isOpen, onClose }) => {
     setReviewingBooking(null);
     setSuccessMessage(t('reviews.submitSuccess'));
   };
+
+  if (!isOpen) return null;
 
   return (
     <>

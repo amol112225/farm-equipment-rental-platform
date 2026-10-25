@@ -1,4 +1,4 @@
-`import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useLanguage } from '../../../context/LanguageContext';
 import {
@@ -18,8 +18,6 @@ const DEFAULT_FALLBACK_IMAGE =
  * filter by status, and approve, reject, or complete bookings with multilingual support.
  */
 const OwnerDashboardModal = ({ isOpen, onClose }) => {
-  if (!isOpen) return null;
-
   const { token, isAuthenticated } = useAuth();
   const { t, formatCurrency, formatDateTime, getBookingStatusLabel, getCategoryLabel } = useLanguage();
 
@@ -131,6 +129,8 @@ const OwnerDashboardModal = ({ isOpen, onClose }) => {
     }
   };
 
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">
       <div
@@ -163,11 +163,11 @@ const OwnerDashboardModal = ({ isOpen, onClose }) => {
               key={filter.id}
               type="button"
               onClick={() => handleFilterChange(filter.id)}
-              className={`px - 3 py - 1.5 rounded - lg text - xs font - semibold transition - all shrink - 0 cursor - pointer ${
-  activeFilter === filter.id
-    ? 'bg-emerald-600 text-white shadow-xs'
-    : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-100'
-} `}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+                activeFilter === filter.id
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-100'
+              }`}
             >
               {filter.label}
             </button>

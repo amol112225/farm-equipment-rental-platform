@@ -8,8 +8,6 @@ import { useLanguage } from '../../../context/LanguageContext';
  * Handles form validation, field-level backend errors, and mode switching.
  */
 const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
-  if (!isOpen) return null;
-
   const { login, register } = useAuth();
   const { t } = useLanguage();
   const [mode, setMode] = useState(initialMode); // 'login' | 'register'
@@ -100,6 +98,8 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
       setGeneralError(err.message || t('auth.registrationFailed'));
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">

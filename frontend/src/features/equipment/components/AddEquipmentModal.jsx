@@ -9,8 +9,6 @@ import { createEquipment } from '../../../services/equipmentService';
  * with direct photo upload (JPEG, PNG, WebP up to 5MB, multiple photos) and multilingual support.
  */
 const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
-  if (!isOpen) return null;
-
   const { token, isAuthenticated } = useAuth();
   const { t, getCategoryLabel } = useLanguage();
   const fileInputRef = useRef(null);
@@ -218,6 +216,8 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
       setGeneralError(err.message || t('common.serverError'));
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">

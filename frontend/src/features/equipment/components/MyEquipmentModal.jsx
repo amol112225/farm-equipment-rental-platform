@@ -17,8 +17,6 @@ import {
  * their own equipment listings with multilingual support.
  */
 const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }) => {
-  if (!isOpen) return null;
-
   const { token, isAuthenticated } = useAuth();
   const { t, formatCurrency, getCategoryLabel } = useLanguage();
   const fileInputRef = useRef(null);
@@ -296,6 +294,8 @@ const MyEquipmentModal = ({ isOpen, onClose, onRefreshData, onOpenAddEquipment }
       setIsDeleting(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200">

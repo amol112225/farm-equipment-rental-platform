@@ -15,7 +15,7 @@ import java.util.Map;
 /**
  * Health Check Controller for AgroRent Backend.
  * Provides endpoint GET /api/health to verify application runtime
- * and MySQL database connectivity.
+ * and database connectivity.
  */
 @RestController
 @RequestMapping("/api")
@@ -41,7 +41,7 @@ public class HealthCheckController {
             if (connection != null && connection.isValid(2)) {
                 dbConnected = true;
                 dbStatus.put("connected", true);
-                dbStatus.put("details", "MySQL Database Connection Verified Successfully");
+                dbStatus.put("details", "Database Connection Verified Successfully");
                 dbStatus.put("catalog", connection.getCatalog());
             } else {
                 dbStatus.put("connected", false);

@@ -9,8 +9,6 @@ import { submitReview } from '../../../services/reviewService';
  * Fully translated and integrated with LanguageContext.
  */
 const ReviewModal = ({ isOpen, booking, onClose, onSuccess }) => {
-  if (!isOpen || !booking) return null;
-
   const { token } = useAuth();
   const { t } = useLanguage();
 
@@ -74,6 +72,8 @@ const ReviewModal = ({ isOpen, booking, onClose, onSuccess }) => {
       setIsSubmitting(false);
     }
   };
+
+  if (!isOpen || !booking) return null;
 
   return (
     <div

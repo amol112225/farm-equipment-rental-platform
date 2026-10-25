@@ -71,10 +71,10 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- MySQL Connector/J: JDBC Driver for MySQL Database -->
+        <!-- PostgreSQL JDBC Driver for Supabase PostgreSQL Database -->
         <dependency>
-            <groupId>com.mysql</groupId>
-            <artifactId>mysql-connector-j</artifactId>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
 
