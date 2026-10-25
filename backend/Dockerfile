@@ -27,9 +27,10 @@ USER agrorent:agrorent
 # Copy the built Spring Boot runnable JAR from builder stage
 COPY --from=builder /workspace/target/*.jar app.jar
 
-# Dynamic port binding (Render injects PORT at container runtime)
+# Dynamic port binding (Render injects PORT at container runtime, defaults to 8080)
 ENV PORT=8080
-EXPOSE ${PORT}
+EXPOSE 8080
 
-# Spring production flags & JVM container memory ergonomics
-ENTRYPOINT ["sh", "-c", "java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom -jar app.jar"]
+# Spring production flags, PID 1 signal handling (exec), and dynamic port binding
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Dserver.port=${PORT:-8080} -Djava.security.egd=file:/dev/./urandom -jar app.jar"]
+

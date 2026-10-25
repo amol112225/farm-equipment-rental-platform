@@ -1,0 +1,35 @@
+# Git tracking files
+.git/
+.gitignore
+
+# Build output & compiled artifacts
+target/
+*.jar
+*.war
+*.ear
+*.class
+
+# Environment files and credentials (never leak local secrets into Docker image)
+.env
+.env.*
+.env.local
+!.env.example
+
+# Local runtime uploads and storage
+uploads/
+
+# IDE and editor settings
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+bin/
+
+# Temporary and log files
+*.log
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
