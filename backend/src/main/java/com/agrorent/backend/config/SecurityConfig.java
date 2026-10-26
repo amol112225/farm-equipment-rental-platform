@@ -78,6 +78,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/reviews/owner/**", "/api/reviews/equipment/**").permitAll()
                         // Protected Equipment and Booking endpoint explicit rules
                         .requestMatchers("/api/equipment/my", "/equipment/my").authenticated()
+                        .requestMatchers("/equipment/**").authenticated()
                         .requestMatchers("/api/bookings/**").authenticated()
                         // All other API endpoints require authentication
                         .requestMatchers("/api/**").authenticated()

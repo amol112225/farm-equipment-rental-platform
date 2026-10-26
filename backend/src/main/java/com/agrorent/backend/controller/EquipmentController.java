@@ -4,6 +4,7 @@ import com.agrorent.backend.dto.ApiResponse;
 import com.agrorent.backend.dto.EquipmentCreateRequest;
 import com.agrorent.backend.dto.EquipmentResponse;
 import com.agrorent.backend.dto.EquipmentUpdateRequest;
+import com.agrorent.backend.dto.ImageUploadResponse;
 import com.agrorent.backend.service.EquipmentService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -118,6 +119,31 @@ public class EquipmentController {
             List<MultipartFile> photos,
             Principal principal) {
         return createEquipmentWithPhotos(request, photos, 0, principal);
+    }
+
+    /**
+     * POST /api/equipment/upload-image
+     * Protected endpoint for authenticated farmers to upload an equipment image file
+     * and obtain its hosted Cloudinary/storage URL without creating or modifying equipment records yet.
+     */
+    @PostMapping(value = {"/upload-image", "/upload"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<ImageUploadResponse>> uploadImage(
+            @RequestParam(value = "file", required = false) MultipartFile file,
+            @RequestParam(value = "image", required = false) MultipartFile image,
+            Principal principal) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        MultipartFile uploadFile = file != null ? file : image;
+        if (uploadFile == null || uploadFile.isEmpty()) {
+            throw new IllegalArgumentException("Please select an image file to upload.");
+        }
+        String imageUrl = equipmentService.uploadImage(uploadFile, principal.getName());
+        ApiResponse<ImageUploadResponse> response = ApiResponse.success(
+                "Image uploaded successfully",
+                new ImageUploadResponse(imageUrl)
+        );
+        return ResponseEntity.ok(response);
     }
 
     /**

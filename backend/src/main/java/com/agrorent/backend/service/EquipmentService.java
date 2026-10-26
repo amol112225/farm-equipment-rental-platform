@@ -33,4 +33,6 @@ public interface EquipmentService {
     EquipmentResponse deleteEquipmentPhoto(Long equipmentId, Long photoId, String farmerEmail);
 
     EquipmentResponse setPrimaryPhoto(Long equipmentId, Long photoId, String farmerEmail);
+
+    String uploadImage(MultipartFile file, String farmerEmail);
 }

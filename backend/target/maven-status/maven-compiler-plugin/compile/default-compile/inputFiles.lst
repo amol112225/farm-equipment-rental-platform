@@ -18,6 +18,7 @@ A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\a
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\FarmerLoginRequest.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\FarmerRegistrationRequest.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\FarmerResponse.java
+A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\ImageUploadResponse.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\LoginResponse.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\OwnerRatingSummary.java
 A:\sem 5\Farm Project\farm-equipment-rental-platform\backend\src\main\java\com\agrorent\backend\dto\ReviewCreateRequest.java

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { useLanguage } from '../../../context/LanguageContext';
-import { createEquipment } from '../../../services/equipmentService';
+import { createEquipment, uploadEquipmentImage } from '../../../services/equipmentService';
 
 /**
  * AddEquipmentModal Component
@@ -25,12 +25,13 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
     isAvailable: true,
   });
 
-  const [selectedPhotos, setSelectedPhotos] = useState([]); // [{ file, previewUrl, id }]
+  const [selectedPhotos, setSelectedPhotos] = useState([]); // [{ file, previewUrl, uploadedUrl, isUploading, id }]
   const [primaryPhotoIndex, setPrimaryPhotoIndex] = useState(0);
   const [photoError, setPhotoError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
   const [generalError, setGeneralError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [showUrlFallback, setShowUrlFallback] = useState(false);
 
   const categories = [
@@ -79,7 +80,7 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
     }
 
     const allowedExts = ['.jpg', '.jpeg', '.png', '.webp'];
-    const newPhotos = [];
+    const validPhotosToUpload = [];
 
     for (const file of files) {
       const lowerName = file.name ? file.name.toLowerCase() : '';
@@ -106,6 +107,9 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
             resolve({
               file,
               previewUrl,
+              uploadedUrl: null,
+              isUploading: true,
+              error: null,
               id: `${file.name}-${Date.now()}-${Math.random()}`,
             });
           };
@@ -115,17 +119,57 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
           };
           img.src = previewUrl;
         });
-        newPhotos.push(validatedPhoto);
+        validPhotosToUpload.push(validatedPhoto);
       } catch (err) {
         setPhotoError(err.message);
         return;
       }
     }
 
-    setSelectedPhotos((prev) => [...prev, ...newPhotos]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+
+    // Append to list with uploading status
+    setSelectedPhotos((prev) => [...prev, ...validPhotosToUpload]);
+    setIsUploadingPhoto(true);
+
+    // Upload each valid photo to the backend
+    for (const photoItem of validPhotosToUpload) {
+      try {
+        const uploadRes = await uploadEquipmentImage(photoItem.file, token);
+        const hostedUrl = uploadRes?.data?.imageUrl;
+        if (hostedUrl) {
+          setSelectedPhotos((current) =>
+            current.map((p) =>
+              p.id === photoItem.id
+                ? { ...p, uploadedUrl: hostedUrl, isUploading: false, error: null }
+                : p
+            )
+          );
+          setFormData((prev) => {
+            if (!prev.imageUrl || prev.imageUrl.trim() === '') {
+              return { ...prev, imageUrl: hostedUrl };
+            }
+            return prev;
+          });
+        } else {
+          throw new Error('Image upload succeeded but no URL was returned.');
+        }
+      } catch (uploadErr) {
+        const errMsg = uploadErr.message || 'Image upload failed. Please try again.';
+        setPhotoError(errMsg);
+        setSelectedPhotos((current) =>
+          current.map((p) =>
+            p.id === photoItem.id
+              ? { ...p, isUploading: false, error: errMsg }
+              : p
+          )
+        );
+      }
+    }
+
+    setIsUploadingPhoto(false);
   };
 
   const handleRemovePhoto = (indexToRemove) => {
@@ -137,8 +181,12 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
       const updated = prev.filter((_, idx) => idx !== indexToRemove);
       if (updated.length === 0) {
         setPrimaryPhotoIndex(0);
+        setFormData((fd) => ({ ...fd, imageUrl: '' }));
       } else if (indexToRemove === primaryPhotoIndex) {
         setPrimaryPhotoIndex(0);
+        if (updated[0]?.uploadedUrl) {
+          setFormData((fd) => ({ ...fd, imageUrl: updated[0].uploadedUrl }));
+        }
       } else if (indexToRemove < primaryPhotoIndex) {
         setPrimaryPhotoIndex(primaryPhotoIndex - 1);
       }
@@ -148,6 +196,9 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
 
   const handleSetPrimary = (index) => {
     setPrimaryPhotoIndex(index);
+    if (selectedPhotos[index]?.uploadedUrl) {
+      setFormData((prev) => ({ ...prev, imageUrl: selectedPhotos[index].uploadedUrl }));
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -158,6 +209,11 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
 
     if (!isAuthenticated || !token) {
       setGeneralError(t('home.loginRequiredToList'));
+      return;
+    }
+
+    if (isUploadingPhoto) {
+      setGeneralError('Please wait for photo upload to finish before submitting.');
       return;
     }
 
@@ -174,34 +230,32 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
     setIsSubmitting(true);
 
     try {
-      const multipartData = new FormData();
-      multipartData.append('name', formData.name.trim());
-      multipartData.append('category', formData.category.trim());
-      multipartData.append('description', formData.description ? formData.description.trim() : '');
-      multipartData.append('price', numericPrice);
-      multipartData.append('priceUnit', formData.priceUnit);
-      multipartData.append('bookingType', formData.bookingType);
-      multipartData.append('location', formData.location.trim());
-      multipartData.append('isAvailable', formData.isAvailable);
-
-      if (formData.imageUrl && formData.imageUrl.trim()) {
-        multipartData.append('imageUrl', formData.imageUrl.trim());
-      }
-
-      // Reorder photos so designated primary is appended first
+      // Reorder photos so designated primary is first
       const orderedPhotos = [...selectedPhotos];
       if (primaryPhotoIndex > 0 && primaryPhotoIndex < orderedPhotos.length) {
         const [primaryPhoto] = orderedPhotos.splice(primaryPhotoIndex, 1);
         orderedPhotos.unshift(primaryPhoto);
       }
 
-      multipartData.append('primaryIndex', 0);
+      const uploadedUrls = orderedPhotos.map((item) => item.uploadedUrl).filter(Boolean);
+      const primaryUrl =
+        uploadedUrls[0] ||
+        (formData.imageUrl && formData.imageUrl.trim() ? formData.imageUrl.trim() : null);
 
-      orderedPhotos.forEach((item) => {
-        multipartData.append('photos', item.file);
-      });
+      const payload = {
+        name: formData.name.trim(),
+        category: formData.category.trim(),
+        description: formData.description ? formData.description.trim() : '',
+        price: numericPrice,
+        priceUnit: formData.priceUnit,
+        bookingType: formData.bookingType,
+        location: formData.location.trim(),
+        imageUrl: primaryUrl,
+        imageUrls: uploadedUrls.length > 0 ? uploadedUrls : undefined,
+        isAvailable: formData.isAvailable,
+      };
 
-      await createEquipment(multipartData, token);
+      await createEquipment(payload, token);
       setIsSubmitting(false);
 
       if (onSuccess) {
@@ -464,6 +518,25 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
                         className="w-full h-full object-cover"
                       />
 
+                      {/* Upload Loading Spinner Overlay */}
+                      {photo.isUploading && (
+                        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs flex flex-col items-center justify-center text-white z-10">
+                          <svg className="animate-spin h-5 w-5 text-white mb-1" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span className="text-[10px] font-medium tracking-tight">Uploading...</span>
+                        </div>
+                      )}
+
+                      {/* Upload Error Overlay */}
+                      {photo.error && (
+                        <div className="absolute inset-0 bg-red-900/80 flex flex-col items-center justify-center text-white p-2 text-center z-10">
+                          <span className="text-xs font-bold">⚠️ Upload Failed</span>
+                          <span className="text-[9px] line-clamp-2 mt-0.5">{photo.error}</span>
+                        </div>
+                      )}
+
                       {/* Primary Badge or Set Primary Button */}
                       {idx === primaryPhotoIndex ? (
                         <span className="absolute top-1.5 left-1.5 bg-emerald-700 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-xs flex items-center gap-1">
@@ -556,10 +629,18 @@ const AddEquipmentModal = ({ isOpen, onClose, onSuccess }) => {
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isUploadingPhoto}
                 className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-lg shadow-sm transition-all duration-200 disabled:opacity-60 flex items-center space-x-2 cursor-pointer"
               >
-                {isSubmitting ? (
+                {isUploadingPhoto ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Uploading Image...</span>
+                  </>
+                ) : isSubmitting ? (
                   <>
                     <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

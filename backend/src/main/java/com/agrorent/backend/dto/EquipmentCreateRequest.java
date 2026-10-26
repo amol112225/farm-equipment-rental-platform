@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public class EquipmentCreateRequest {
 
@@ -39,6 +40,8 @@ public class EquipmentCreateRequest {
 
     @Size(max = 500, message = "Image URL must not exceed 500 characters")
     private String imageUrl;
+
+    private List<String> imageUrls;
 
     private Boolean isAvailable = true;
 
@@ -119,6 +122,14 @@ public class EquipmentCreateRequest {
 
     public void setImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
+    }
+
+    public List<String> getImageUrls() {
+        return imageUrls;
+    }
+
+    public void setImageUrls(List<String> imageUrls) {
+        this.imageUrls = imageUrls;
     }
 
     public Boolean getIsAvailable() {

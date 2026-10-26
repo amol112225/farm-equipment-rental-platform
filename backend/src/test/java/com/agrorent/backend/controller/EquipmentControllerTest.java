@@ -3,6 +3,7 @@ package com.agrorent.backend.controller;
 import com.agrorent.backend.dto.ApiResponse;
 import com.agrorent.backend.dto.EquipmentCreateRequest;
 import com.agrorent.backend.dto.EquipmentResponse;
+import com.agrorent.backend.dto.ImageUploadResponse;
 import com.agrorent.backend.service.EquipmentService;
 import com.agrorent.backend.service.FileValidationServiceTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -137,5 +138,41 @@ class EquipmentControllerTest {
         assertNotNull(response.getBody());
         assertTrue(response.getBody().isSuccess());
         verify(equipmentService).deleteEquipmentPhoto(100L, 500L, "owner@agrorent.com");
+    }
+
+    @Test
+    @DisplayName("Should reject uploadImage when unauthenticated with 401 UNAUTHORIZED")
+    void testUploadImageUnauthenticated() {
+        MockMultipartFile file = new MockMultipartFile("file", "tractor.jpg", "image/jpeg", FileValidationServiceTest.createValidJpegBytes());
+        ResponseEntity<ApiResponse<ImageUploadResponse>> response =
+                equipmentController.uploadImage(file, null, null);
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        verify(equipmentService, never()).uploadImage(any(), any());
+    }
+
+    @Test
+    @DisplayName("Should reject uploadImage when file is empty with IllegalArgumentException")
+    void testUploadImageEmptyFile() {
+        MockMultipartFile emptyFile = new MockMultipartFile("file", "empty.jpg", "image/jpeg", new byte[0]);
+        assertThrows(IllegalArgumentException.class, () ->
+                equipmentController.uploadImage(emptyFile, null, mockPrincipal));
+        verify(equipmentService, never()).uploadImage(any(), any());
+    }
+
+    @Test
+    @DisplayName("Should upload image when authenticated and return hosted URL in ImageUploadResponse")
+    void testUploadImageAuthenticatedSuccess() {
+        MockMultipartFile file = new MockMultipartFile("file", "tractor.jpg", "image/jpeg", FileValidationServiceTest.createValidJpegBytes());
+        when(equipmentService.uploadImage(any(), eq("owner@agrorent.com")))
+                .thenReturn("https://res.cloudinary.com/demo/image/upload/sample.jpg");
+
+        ResponseEntity<ApiResponse<ImageUploadResponse>> response =
+                equipmentController.uploadImage(file, null, mockPrincipal);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertTrue(response.getBody().isSuccess());
+        assertEquals("https://res.cloudinary.com/demo/image/upload/sample.jpg", response.getBody().getData().getImageUrl());
+        verify(equipmentService).uploadImage(any(), eq("owner@agrorent.com"));
     }
 }

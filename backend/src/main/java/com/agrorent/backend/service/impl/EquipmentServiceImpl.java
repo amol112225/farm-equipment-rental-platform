@@ -101,12 +101,27 @@ public class EquipmentServiceImpl implements EquipmentService {
         return ownEquipment.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
+    private void validateImageUrl(String imageUrl) {
+        if (imageUrl == null || imageUrl.isBlank()) {
+            return;
+        }
+        String trimmed = imageUrl.trim();
+        if (trimmed.startsWith("data:") || trimmed.toLowerCase().contains(";base64,")) {
+            throw new IllegalArgumentException("Base64-encoded images cannot be stored directly in the database. Please upload images through the image upload API to obtain a hosted URL.");
+        }
+        if (trimmed.length() > 500) {
+            throw new IllegalArgumentException("Image URL length exceeds the maximum limit of 500 characters.");
+        }
+    }
+
     @Override
     @Transactional
     public EquipmentResponse createEquipment(EquipmentCreateRequest request, String farmerEmail) {
         String normalizedEmail = farmerEmail != null ? farmerEmail.trim().toLowerCase() : "";
         Farmer owner = farmerRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Authenticated farmer profile not found."));
+
+        validateImageUrl(request.getImageUrl());
 
         Equipment equipment = new Equipment(
                 request.getName().trim(),
@@ -121,7 +136,22 @@ public class EquipmentServiceImpl implements EquipmentService {
                 owner
         );
 
-        if (request.getImageUrl() != null && !request.getImageUrl().trim().isBlank()) {
+        if (request.getImageUrls() != null && !request.getImageUrls().isEmpty()) {
+            int order = 0;
+            for (String urlItem : request.getImageUrls()) {
+                if (urlItem != null && !urlItem.trim().isBlank()) {
+                    String trimmedUrl = urlItem.trim();
+                    validateImageUrl(trimmedUrl);
+                    boolean isPrimary = (order == 0);
+                    EquipmentImage image = new EquipmentImage(equipment, trimmedUrl, order, isPrimary);
+                    equipment.addImage(image);
+                    if (isPrimary && (equipment.getImageUrl() == null || equipment.getImageUrl().isBlank())) {
+                        equipment.setImageUrl(trimmedUrl);
+                    }
+                    order++;
+                }
+            }
+        } else if (request.getImageUrl() != null && !request.getImageUrl().trim().isBlank()) {
             EquipmentImage image = new EquipmentImage(equipment, request.getImageUrl().trim(), 0, true);
             equipment.addImage(image);
         }
@@ -210,6 +240,8 @@ public class EquipmentServiceImpl implements EquipmentService {
             throw new UnauthorizedActionException("You are not authorized to update this equipment listing because you do not own it.");
         }
 
+        validateImageUrl(request.getImageUrl());
+
         equipment.setName(request.getName().trim());
         equipment.setCategory(request.getCategory().trim());
         equipment.setDescription(request.getDescription() != null ? request.getDescription().trim() : null);
@@ -233,6 +265,30 @@ public class EquipmentServiceImpl implements EquipmentService {
                 img.setIsPrimary(img.getId() != null && img.getId().equals(request.getPrimaryImageId()));
             }
             equipment.setImageUrl(targetImage.getImageUrl());
+        } else if (request.getImageUrl() != null && !request.getImageUrl().trim().isBlank()) {
+            String newUrl = request.getImageUrl().trim();
+            equipment.setImageUrl(newUrl);
+            if (equipment.getImages() != null && !equipment.getImages().isEmpty()) {
+                boolean matched = false;
+                for (EquipmentImage img : equipment.getImages()) {
+                    if (newUrl.equalsIgnoreCase(img.getImageUrl())) {
+                        img.setIsPrimary(true);
+                        matched = true;
+                    } else {
+                        img.setIsPrimary(false);
+                    }
+                }
+                if (!matched) {
+                    for (EquipmentImage img : equipment.getImages()) {
+                        img.setIsPrimary(false);
+                    }
+                    EquipmentImage newImg = new EquipmentImage(equipment, newUrl, equipment.getImages().size(), true);
+                    equipment.addImage(newImg);
+                }
+            } else {
+                EquipmentImage newImg = new EquipmentImage(equipment, newUrl, 0, true);
+                equipment.addImage(newImg);
+            }
         } else if (equipment.getImages() != null && !equipment.getImages().isEmpty()) {
             // Equipment has photos: preserve or establish deterministic primary photo
             EquipmentImage primaryImg = equipment.getImages().stream()
@@ -247,14 +303,8 @@ public class EquipmentServiceImpl implements EquipmentService {
                 firstImg.setIsPrimary(true);
                 equipment.setImageUrl(firstImg.getImageUrl());
             }
-        } else if (request.getImageUrl() != null) {
-            // Legacy / fallback case when no EquipmentImages exist yet
-            String newUrl = request.getImageUrl().trim();
-            equipment.setImageUrl(!newUrl.isBlank() ? newUrl : null);
-            if (!newUrl.isBlank()) {
-                EquipmentImage image = new EquipmentImage(equipment, newUrl, 0, true);
-                equipment.addImage(image);
-            }
+        } else if (request.getImageUrl() != null && request.getImageUrl().trim().isBlank()) {
+            equipment.setImageUrl(null);
         }
 
         if (request.getIsAvailable() != null) {
@@ -431,6 +481,29 @@ public class EquipmentServiceImpl implements EquipmentService {
 
         Equipment saved = equipmentRepository.save(equipment);
         return mapToResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public String uploadImage(MultipartFile file, String farmerEmail) {
+        String normalizedEmail = farmerEmail != null ? farmerEmail.trim().toLowerCase() : "";
+        if (!farmerRepository.existsByEmail(normalizedEmail)) {
+            throw new ResourceNotFoundException("Authenticated farmer profile not found.");
+        }
+
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Please select an image file to upload.");
+        }
+
+        if (fileValidationService != null) {
+            fileValidationService.validateImageFile(file);
+        }
+
+        if (imageStorageService == null) {
+            throw new IllegalStateException("Image storage service is not configured.");
+        }
+
+        return imageStorageService.storeImage(file);
     }
 
     private EquipmentResponse mapToResponse(Equipment equipment) {

@@ -479,4 +479,77 @@ class EquipmentPhotoServiceTest {
         assertTrue(response.getImages().get(0).getIsPrimary());
         assertFalse(response.getImages().get(1).getIsPrimary());
     }
+
+    @Test
+    @DisplayName("Should upload image via uploadImage for authenticated farmer and return hosted URL")
+    void testUploadImageSuccess() {
+        when(farmerRepository.existsByEmail("ramesh@agrorent.com")).thenReturn(true);
+        MockMultipartFile photo = new MockMultipartFile("file", "tractor.jpg", "image/jpeg",
+                FileValidationServiceTest.createValidJpegBytes());
+        when(imageStorageService.storeImage(photo)).thenReturn("https://res.cloudinary.com/cloud/image/upload/v123/tractor.jpg");
+
+        String resultUrl = equipmentService.uploadImage(photo, "ramesh@agrorent.com");
+
+        assertNotNull(resultUrl);
+        assertEquals("https://res.cloudinary.com/cloud/image/upload/v123/tractor.jpg", resultUrl);
+        verify(imageStorageService).storeImage(photo);
+    }
+
+    @Test
+    @DisplayName("Should throw ResourceNotFoundException when uploadImage called by unauthenticated farmer profile")
+    void testUploadImageFarmerNotFound() {
+        when(farmerRepository.existsByEmail("unknown@agrorent.com")).thenReturn(false);
+        MockMultipartFile photo = new MockMultipartFile("file", "tractor.jpg", "image/jpeg",
+                FileValidationServiceTest.createValidJpegBytes());
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> equipmentService.uploadImage(photo, "unknown@agrorent.com"));
+        verify(imageStorageService, never()).storeImage(any());
+    }
+
+    @Test
+    @DisplayName("Should throw IllegalArgumentException when uploadImage called with null or empty file")
+    void testUploadImageNullOrEmptyFile() {
+        when(farmerRepository.existsByEmail("ramesh@agrorent.com")).thenReturn(true);
+        MockMultipartFile emptyFile = new MockMultipartFile("file", "empty.jpg", "image/jpeg", new byte[0]);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> equipmentService.uploadImage(emptyFile, "ramesh@agrorent.com"));
+        assertThrows(IllegalArgumentException.class,
+                () -> equipmentService.uploadImage(null, "ramesh@agrorent.com"));
+        verify(imageStorageService, never()).storeImage(any());
+    }
+
+    @Test
+    @DisplayName("Should update equipment with new imageUrl and synchronize primary photo")
+    void testUpdateEquipmentWithNewImageUrl() {
+        EquipmentImage img1 = new EquipmentImage();
+        img1.setId(501L);
+        img1.setImageUrl("https://res.cloudinary.com/cloud/image/upload/old.jpg");
+        img1.setIsPrimary(true);
+        testEquipment.addImage(img1);
+        testEquipment.setImageUrl("https://res.cloudinary.com/cloud/image/upload/old.jpg");
+
+        when(equipmentRepository.findById(101L)).thenReturn(Optional.of(testEquipment));
+        when(equipmentRepository.save(any(Equipment.class))).thenReturn(testEquipment);
+
+        EquipmentUpdateRequest updateReq = new EquipmentUpdateRequest();
+        updateReq.setName("Mahindra 575 DI Super");
+        updateReq.setCategory("Tractors");
+        updateReq.setPrice(new BigDecimal("500.00"));
+        updateReq.setPriceUnit("hour");
+        updateReq.setBookingType("instant");
+        updateReq.setLocation("Punjab");
+        updateReq.setImageUrl("https://res.cloudinary.com/cloud/image/upload/new.jpg");
+
+        EquipmentResponse response = equipmentService.updateEquipment(101L, updateReq, "ramesh@agrorent.com");
+
+        assertNotNull(response);
+        assertEquals("https://res.cloudinary.com/cloud/image/upload/new.jpg", testEquipment.getImageUrl());
+        assertEquals(2, testEquipment.getImages().size());
+        assertFalse(img1.getIsPrimary());
+        assertTrue(testEquipment.getImages().get(1).getIsPrimary());
+        assertEquals("https://res.cloudinary.com/cloud/image/upload/new.jpg", testEquipment.getImages().get(1).getImageUrl());
+        verify(equipmentRepository).save(testEquipment);
+    }
 }

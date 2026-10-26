@@ -247,4 +247,67 @@ class EquipmentServiceImplTest {
         verify(reviewRepository).getAverageRatingByEquipmentId(100L);
         verify(reviewRepository, never()).countByOwnerId(anyLong());
     }
+
+    @Test
+    @DisplayName("Should reject createEquipment with Base64 imageUrl with IllegalArgumentException")
+    void testCreateEquipmentRejectsBase64ImageUrl() {
+        when(farmerRepository.findByEmail("john@farm.com")).thenReturn(Optional.of(mockFarmer1));
+
+        EquipmentCreateRequest request = new EquipmentCreateRequest();
+        request.setName("John Deere Tractor");
+        request.setCategory("Tractors");
+        request.setPrice(new BigDecimal("500.00"));
+        request.setPriceUnit("hour");
+        request.setBookingType("instant");
+        request.setLocation("Punjab");
+        request.setImageUrl("data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP///////////////////////////////////wGBAQA");
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> equipmentService.createEquipment(request, "john@farm.com"));
+
+        assertTrue(ex.getMessage().contains("Base64-encoded images cannot be stored directly"));
+        verify(equipmentRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should reject createEquipment with imageUrl exceeding 500 characters")
+    void testCreateEquipmentRejectsOversizedImageUrl() {
+        when(farmerRepository.findByEmail("john@farm.com")).thenReturn(Optional.of(mockFarmer1));
+
+        EquipmentCreateRequest request = new EquipmentCreateRequest();
+        request.setName("John Deere Tractor");
+        request.setCategory("Tractors");
+        request.setPrice(new BigDecimal("500.00"));
+        request.setPriceUnit("hour");
+        request.setBookingType("instant");
+        request.setLocation("Punjab");
+        request.setImageUrl("https://example.com/images/" + "a".repeat(500) + ".jpg");
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> equipmentService.createEquipment(request, "john@farm.com"));
+
+        assertTrue(ex.getMessage().contains("exceeds the maximum limit of 500 characters"));
+        verify(equipmentRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should reject updateEquipment with Base64 imageUrl with IllegalArgumentException")
+    void testUpdateEquipmentRejectsBase64ImageUrl() {
+        when(equipmentRepository.findById(100L)).thenReturn(Optional.of(mockEquipment));
+
+        EquipmentUpdateRequest updateReq = new EquipmentUpdateRequest();
+        updateReq.setName("Updated Tractor");
+        updateReq.setCategory("Tractors");
+        updateReq.setPrice(new BigDecimal("600.00"));
+        updateReq.setPriceUnit("day");
+        updateReq.setBookingType("request");
+        updateReq.setLocation("Haryana");
+        updateReq.setImageUrl("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> equipmentService.updateEquipment(100L, updateReq, "john@farm.com"));
+
+        assertTrue(ex.getMessage().contains("Base64-encoded images cannot be stored directly"));
+        verify(equipmentRepository, never()).save(any());
+    }
 }

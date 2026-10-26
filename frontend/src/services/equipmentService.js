@@ -84,6 +84,29 @@ export async function fetchMyEquipment(token) {
 }
 
 /**
+ * Upload an equipment image to the backend and obtain its hosted URL.
+ * Uses FormData and multipart/form-data. Does not set Content-Type header
+ * to allow the browser to generate the multipart boundary automatically.
+ * @param {File} file - Image file (JPEG, PNG, WebP)
+ * @param {string} token - Bearer JWT Token
+ * @returns {Promise<Object>} ApiResponse<ImageUploadResponse> ({ data: { imageUrl } })
+ */
+export async function uploadEquipmentImage(file, token) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch(`${API_BASE_URL}/equipment/upload-image`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  return handleResponse(response);
+}
+
+/**
  * Create a new equipment listing as an authenticated farmer.
  * Supports both JSON object and FormData (multipart for photo attachments).
  * @param {Object|FormData} equipmentData
