@@ -1,7 +1,15 @@
+com\agrorent\backend\security\FilterChainInspectionTest$TestConfig.class
+com\agrorent\backend\security\PreflightCorsSecurityTest.class
+com\agrorent\backend\service\StorageServiceImplTest.class
+com\agrorent\backend\service\FileValidationServiceTest.class
+com\agrorent\backend\service\CloudinaryImageStorageServiceTest.class
+com\agrorent\backend\security\CorsConfigurationTest.class
+com\agrorent\backend\security\FilterChainInspectionTest.class
 com\agrorent\backend\security\JwtTokenProviderTest.class
 com\agrorent\backend\service\EquipmentServiceImplTest.class
 com\agrorent\backend\service\ReviewServiceImplTest.class
+com\agrorent\backend\service\StorageServiceImplTest$StubObjectProvider.class
 com\agrorent\backend\service\BookingServiceImplTest.class
 com\agrorent\backend\service\EquipmentPhotoServiceTest.class
-com\agrorent\backend\service\FileValidationServiceTest.class
+com\agrorent\backend\security\FilterChainInspectionTest$1Runner.class
 com\agrorent\backend\controller\EquipmentControllerTest.class

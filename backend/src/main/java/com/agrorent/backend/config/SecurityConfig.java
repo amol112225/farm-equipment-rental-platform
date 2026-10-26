@@ -16,9 +16,11 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Set;
 
 /**
  * Spring Security Configuration for Stateless REST API, CORS rules,
@@ -31,8 +33,20 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
 
+    public static final String PRODUCTION_VERCEL_ORIGIN =
+            "https://farm-equipment-rental-platform-six.vercel.app";
+
+    public static final List<String> DEFAULT_DEVELOPMENT_ORIGINS = List.of(
+            "http://localhost:5173",
+            "http://localhost:5174",
+            "http://localhost:3000",
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:5174",
+            "http://127.0.0.1:3000"
+    );
+
     public static final String DEFAULT_ALLOWED_ORIGINS =
-            "http://localhost:5173,http://localhost:5174,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:5174,http://127.0.0.1:3000,https://farm-equipment-rental-platform-six.vercel.app";
+            "http://localhost:5173,http://localhost:5174,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:5174,http://127.0.0.1:3000," + PRODUCTION_VERCEL_ORIGIN;
 
     @Value("${cors.allowed-origins:" + DEFAULT_ALLOWED_ORIGINS + "}")
     private String allowedOrigins = DEFAULT_ALLOWED_ORIGINS;
@@ -76,16 +90,23 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        String rawOrigins = (allowedOrigins != null && !allowedOrigins.trim().isEmpty())
-                ? allowedOrigins
-                : DEFAULT_ALLOWED_ORIGINS;
-        List<String> origins = Arrays.stream(rawOrigins.split(","))
-                .map(String::trim)
-                .map(origin -> origin.replaceAll("/+$", ""))
-                .filter(origin -> !origin.isEmpty())
-                .collect(Collectors.toList());
-        configuration.setAllowedOrigins(origins);
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+
+        Set<String> resolvedOrigins = new LinkedHashSet<>();
+        // 1. Explicitly allow exact production Vercel frontend origin
+        resolvedOrigins.add(PRODUCTION_VERCEL_ORIGIN);
+        // 2. Preserve local development origins
+        resolvedOrigins.addAll(DEFAULT_DEVELOPMENT_ORIGINS);
+        // 3. Include any additional configured origins (e.g. from CORS_ALLOWED_ORIGINS env var)
+        if (allowedOrigins != null && !allowedOrigins.trim().isEmpty()) {
+            Arrays.stream(allowedOrigins.split(","))
+                    .map(String::trim)
+                    .map(origin -> origin.replaceAll("/+$", ""))
+                    .filter(origin -> !origin.isEmpty())
+                    .forEach(resolvedOrigins::add);
+        }
+
+        configuration.setAllowedOrigins(new ArrayList<>(resolvedOrigins));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList(
                 "Authorization",
                 "Content-Type",
