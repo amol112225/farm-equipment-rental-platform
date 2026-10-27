@@ -23,13 +23,56 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     Optional<Booking> findByIdWithPessimisticLock(@Param("id") Long id);
 
 
-    List<Booking> findByRenterEmailOrderByCreatedAtDesc(String renterEmail);
+    /**
+     * Finds bookings made by a renter, eagerly fetching equipment, renter, and owner.
+     * Prevents N+1 queries when mapping booking lists.
+     */
+    @Query("SELECT b FROM Booking b " +
+           "JOIN FETCH b.equipment e " +
+           "JOIN FETCH b.renter r " +
+           "JOIN FETCH b.owner o " +
+           "WHERE r.email = :renterEmail ORDER BY b.createdAt DESC")
+    List<Booking> findByRenterEmailOrderByCreatedAtDesc(@Param("renterEmail") String renterEmail);
 
-    List<Booking> findByRenterIdOrderByIdDesc(Long renterId);
+    /**
+     * Finds bookings made by a renter ID, eagerly fetching equipment, renter, and owner.
+     */
+    @Query("SELECT b FROM Booking b " +
+           "JOIN FETCH b.equipment e " +
+           "JOIN FETCH b.renter r " +
+           "JOIN FETCH b.owner o " +
+           "WHERE r.id = :renterId ORDER BY b.id DESC")
+    List<Booking> findByRenterIdOrderByIdDesc(@Param("renterId") Long renterId);
 
-    List<Booking> findByOwnerEmailOrderByCreatedAtDesc(String ownerEmail);
+    /**
+     * Finds all bookings for equipment owned by an owner, eagerly fetching associations.
+     */
+    @Query("SELECT b FROM Booking b " +
+           "JOIN FETCH b.equipment e " +
+           "JOIN FETCH b.renter r " +
+           "JOIN FETCH b.owner o " +
+           "WHERE o.email = :ownerEmail ORDER BY b.createdAt DESC")
+    List<Booking> findByOwnerEmailOrderByCreatedAtDesc(@Param("ownerEmail") String ownerEmail);
 
-    List<Booking> findByOwnerEmailAndStatusOrderByCreatedAtDesc(String ownerEmail, String status);
+    /**
+     * Finds bookings for equipment owned by an owner filtered by status, eagerly fetching associations.
+     */
+    @Query("SELECT b FROM Booking b " +
+           "JOIN FETCH b.equipment e " +
+           "JOIN FETCH b.renter r " +
+           "JOIN FETCH b.owner o " +
+           "WHERE o.email = :ownerEmail AND b.status = :status ORDER BY b.createdAt DESC")
+    List<Booking> findByOwnerEmailAndStatusOrderByCreatedAtDesc(@Param("ownerEmail") String ownerEmail, @Param("status") String status);
+
+    /**
+     * Finds a single booking by ID with equipment, renter, and owner fetched eagerly.
+     */
+    @Query("SELECT b FROM Booking b " +
+           "JOIN FETCH b.equipment e " +
+           "JOIN FETCH b.renter r " +
+           "JOIN FETCH b.owner o " +
+           "WHERE b.id = :id")
+    Optional<Booking> findByIdWithDetails(@Param("id") Long id);
 
     /**
      * Finds active bookings that overlap with a target time interval for a specific equipment listing.

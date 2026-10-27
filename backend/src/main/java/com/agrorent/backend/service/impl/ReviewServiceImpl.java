@@ -155,7 +155,8 @@ public class ReviewServiceImpl implements ReviewService {
         String ownerName = null;
 
         if (equipmentRepository != null) {
-            Equipment equipment = equipmentRepository.findById(equipmentId)
+            Equipment equipment = equipmentRepository.findByIdWithOwner(equipmentId)
+                    .or(() -> equipmentRepository.findById(equipmentId))
                     .orElseThrow(() -> new ResourceNotFoundException("Equipment not found with ID: " + equipmentId));
             equipmentName = equipment.getName();
             if (equipment.getOwner() != null) {

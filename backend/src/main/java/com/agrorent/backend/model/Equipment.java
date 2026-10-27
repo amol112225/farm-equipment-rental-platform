@@ -56,6 +56,7 @@ public class Equipment {
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
+    @org.hibernate.annotations.BatchSize(size = 30)
     @OneToMany(mappedBy = "equipment", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("displayOrder ASC, id ASC")
     private List<EquipmentImage> images = new ArrayList<>();

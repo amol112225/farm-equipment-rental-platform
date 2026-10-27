@@ -22,7 +22,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -73,13 +77,15 @@ public class EquipmentServiceImpl implements EquipmentService {
         String trimmedLocation = location != null ? location.trim() : null;
 
         List<Equipment> equipmentList = equipmentRepository.searchPublicEquipment(trimmedKeyword, trimmedCategory, trimmedLocation);
-        return equipmentList.stream().map(this::mapToResponse).collect(Collectors.toList());
+        Map<Long, RatingData> ratingMap = fetchRatingSummaries(equipmentList);
+        return equipmentList.stream().map(e -> mapToResponse(e, ratingMap)).collect(Collectors.toList());
     }
 
     @Override
     @Transactional(readOnly = true)
     public EquipmentResponse getPublicEquipmentById(Long id) {
-        Equipment equipment = equipmentRepository.findById(id)
+        Equipment equipment = equipmentRepository.findByIdWithOwner(id)
+                .or(() -> equipmentRepository.findById(id))
                 .orElseThrow(() -> new ResourceNotFoundException("Equipment listing not found with ID: " + id));
 
         if (!Boolean.TRUE.equals(equipment.getIsAvailable())) {
@@ -98,7 +104,8 @@ public class EquipmentServiceImpl implements EquipmentService {
         }
 
         List<Equipment> ownEquipment = equipmentRepository.findByOwnerEmail(normalizedEmail);
-        return ownEquipment.stream().map(this::mapToResponse).collect(Collectors.toList());
+        Map<Long, RatingData> ratingMap = fetchRatingSummaries(ownEquipment);
+        return ownEquipment.stream().map(e -> mapToResponse(e, ratingMap)).collect(Collectors.toList());
     }
 
     private void validateImageUrl(String imageUrl) {
@@ -506,10 +513,65 @@ public class EquipmentServiceImpl implements EquipmentService {
         return imageStorageService.storeImage(file);
     }
 
+    private static class RatingData {
+        final long count;
+        final Double avgRating;
+
+        RatingData(long count, Double avgRating) {
+            this.count = count;
+            this.avgRating = avgRating;
+        }
+    }
+
+    private Map<Long, RatingData> fetchRatingSummaries(List<Equipment> equipmentList) {
+        if (reviewRepository == null || equipmentList == null || equipmentList.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<Long> equipmentIds = equipmentList.stream()
+                .map(Equipment::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        if (equipmentIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        try {
+            List<Object[]> summaries = reviewRepository.findRatingSummariesByEquipmentIds(equipmentIds);
+            Map<Long, RatingData> map = new HashMap<>();
+            if (summaries != null) {
+                for (Object[] row : summaries) {
+                    if (row != null && row.length >= 3 && row[0] != null) {
+                        Long eqId = ((Number) row[0]).longValue();
+                        long count = row[1] != null ? ((Number) row[1]).longValue() : 0L;
+                        Double avg = row[2] != null ? ((Number) row[2]).doubleValue() : null;
+                        map.put(eqId, new RatingData(count, avg));
+                    }
+                }
+            }
+            return map;
+        } catch (Exception ex) {
+            // Fallback gracefully to individual lookup if aggregate query fails
+            return Collections.emptyMap();
+        }
+    }
+
     private EquipmentResponse mapToResponse(Equipment equipment) {
+        return mapToResponse(equipment, null);
+    }
+
+    private EquipmentResponse mapToResponse(Equipment equipment, Map<Long, RatingData> batchRatingMap) {
         Double avgRating = 0.0;
         long totalReviews = 0L;
-        if (reviewRepository != null && equipment.getId() != null) {
+
+        if (batchRatingMap != null) {
+            RatingData data = batchRatingMap.get(equipment.getId());
+            if (data != null) {
+                totalReviews = data.count;
+                if (data.avgRating != null) {
+                    avgRating = Math.round(data.avgRating * 10.0) / 10.0;
+                }
+            }
+        } else if (reviewRepository != null && equipment.getId() != null) {
             Long equipmentId = equipment.getId();
             totalReviews = reviewRepository.countByEquipmentId(equipmentId);
             if (totalReviews > 0) {

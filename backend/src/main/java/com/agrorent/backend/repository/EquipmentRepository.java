@@ -17,11 +17,16 @@ import java.util.Optional;
 @Repository
 public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
 
-    List<Equipment> findByOwnerId(Long ownerId);
+    @Query("SELECT e FROM Equipment e JOIN FETCH e.owner WHERE e.owner.id = :ownerId")
+    List<Equipment> findByOwnerId(@Param("ownerId") Long ownerId);
 
-    List<Equipment> findByOwnerEmail(String ownerEmail);
+    @Query("SELECT e FROM Equipment e JOIN FETCH e.owner WHERE LOWER(e.owner.email) = LOWER(:ownerEmail)")
+    List<Equipment> findByOwnerEmail(@Param("ownerEmail") String ownerEmail);
 
-    @Query("SELECT e FROM Equipment e WHERE e.isAvailable = true " +
+    @Query("SELECT e FROM Equipment e JOIN FETCH e.owner WHERE e.id = :id")
+    Optional<Equipment> findByIdWithOwner(@Param("id") Long id);
+
+    @Query("SELECT e FROM Equipment e JOIN FETCH e.owner WHERE e.isAvailable = true " +
            "AND (:category IS NULL OR :category = '' OR LOWER(e.category) = LOWER(:category)) " +
            "AND (:location IS NULL OR :location = '' OR LOWER(e.location) LIKE LOWER(CONCAT('%', :location, '%'))) " +
            "AND (:keyword IS NULL OR :keyword = '' OR (LOWER(e.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(e.description) LIKE LOWER(CONCAT('%', :keyword, '%'))))")

@@ -11,5 +11,6 @@ com\agrorent\backend\service\ReviewServiceImplTest.class
 com\agrorent\backend\service\StorageServiceImplTest$StubObjectProvider.class
 com\agrorent\backend\service\BookingServiceImplTest.class
 com\agrorent\backend\service\EquipmentPhotoServiceTest.class
+com\agrorent\backend\security\JwtAuthenticationFilterTest.class
 com\agrorent\backend\security\FilterChainInspectionTest$1Runner.class
 com\agrorent\backend\controller\EquipmentControllerTest.class

@@ -27,8 +27,15 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     /**
      * Finds all reviews received by a specific equipment owner, ordered newest first.
+     * Uses LEFT JOIN FETCH on reviewer, owner, equipment, and booking to prevent N+1 queries.
      */
-    List<Review> findByOwnerIdOrderByCreatedAtDesc(Long ownerId);
+    @Query("SELECT r FROM Review r " +
+           "LEFT JOIN FETCH r.reviewer " +
+           "LEFT JOIN FETCH r.owner " +
+           "LEFT JOIN FETCH r.equipment " +
+           "LEFT JOIN FETCH r.booking " +
+           "WHERE r.owner.id = :ownerId ORDER BY r.createdAt DESC")
+    List<Review> findByOwnerIdOrderByCreatedAtDesc(@Param("ownerId") Long ownerId);
 
     /**
      * Finds all booking IDs that have already been reviewed by a given reviewer.
@@ -51,8 +58,15 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     /**
      * Finds all reviews for a specific equipment item, ordered newest first.
+     * Uses LEFT JOIN FETCH on reviewer, owner, equipment, and booking to prevent N+1 queries.
      */
-    List<Review> findByEquipmentIdOrderByCreatedAtDesc(Long equipmentId);
+    @Query("SELECT r FROM Review r " +
+           "LEFT JOIN FETCH r.reviewer " +
+           "LEFT JOIN FETCH r.owner " +
+           "LEFT JOIN FETCH r.equipment " +
+           "LEFT JOIN FETCH r.booking " +
+           "WHERE r.equipment.id = :equipmentId ORDER BY r.createdAt DESC")
+    List<Review> findByEquipmentIdOrderByCreatedAtDesc(@Param("equipmentId") Long equipmentId);
 
     /**
      * Counts the total number of reviews for a specific equipment item.
@@ -65,4 +79,12 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
      */
     @Query("SELECT AVG(r.rating) FROM Review r WHERE r.equipment.id = :equipmentId")
     Double getAverageRatingByEquipmentId(@Param("equipmentId") Long equipmentId);
+
+    /**
+     * Aggregates review count and average rating across a collection of equipment IDs.
+     * Returns a list of rows: [Long equipmentId, Long count, Double averageRating].
+     * Avoids running separate count and average rating queries for each equipment in listings.
+     */
+    @Query("SELECT r.equipment.id, COUNT(r.id), AVG(r.rating) FROM Review r WHERE r.equipment.id IN :equipmentIds GROUP BY r.equipment.id")
+    List<Object[]> findRatingSummariesByEquipmentIds(@Param("equipmentIds") java.util.Collection<Long> equipmentIds);
 }

@@ -310,4 +310,97 @@ class EquipmentServiceImplTest {
         assertTrue(ex.getMessage().contains("Base64-encoded images cannot be stored directly"));
         verify(equipmentRepository, never()).save(any());
     }
+
+    @Test
+    @DisplayName("Should use batch rating summaries in searchPublicEquipment without individual N+1 review queries")
+    void testSearchPublicEquipmentUsesBatchRatingSummaries() {
+        Equipment mockEquipment2 = new Equipment();
+        mockEquipment2.setId(200L);
+        mockEquipment2.setName("Combine Harvester");
+        mockEquipment2.setCategory("Harvesters");
+        mockEquipment2.setPrice(new BigDecimal("2500.00"));
+        mockEquipment2.setPriceUnit("day");
+        mockEquipment2.setBookingType("request");
+        mockEquipment2.setLocation("Punjab");
+        mockEquipment2.setIsAvailable(true);
+        mockEquipment2.setOwner(mockFarmer1);
+
+        when(equipmentRepository.searchPublicEquipment("Tractor", null, null))
+                .thenReturn(List.of(mockEquipment, mockEquipment2));
+
+        // Mock batch rating query: equipment 100 has 3 reviews with avg 4.33; equipment 200 has 0 reviews (not in summary rows)
+        Object[] row1 = new Object[]{100L, 3L, 4.33};
+        when(reviewRepository.findRatingSummariesByEquipmentIds(anyCollection()))
+                .thenReturn(java.util.Collections.singletonList(row1));
+
+        List<EquipmentResponse> responses = equipmentService.searchPublicEquipment("Tractor", null, null);
+
+        assertNotNull(responses);
+        assertEquals(2, responses.size());
+
+        EquipmentResponse resp1 = responses.get(0);
+        assertEquals(100L, resp1.getId());
+        assertEquals(4.3, resp1.getRating());
+        assertEquals(3L, resp1.getTotalReviews());
+
+        EquipmentResponse resp2 = responses.get(1);
+        assertEquals(200L, resp2.getId());
+        assertEquals(0.0, resp2.getRating());
+        assertEquals(0L, resp2.getTotalReviews());
+
+        // Crucial verification: N+1 individual methods must NOT have been called!
+        verify(reviewRepository).findRatingSummariesByEquipmentIds(anyCollection());
+        verify(reviewRepository, never()).countByEquipmentId(anyLong());
+        verify(reviewRepository, never()).getAverageRatingByEquipmentId(anyLong());
+    }
+
+    @Test
+    @DisplayName("Should handle empty equipment list in searchPublicEquipment without querying reviews")
+    void testSearchPublicEquipmentEmptyList() {
+        when(equipmentRepository.searchPublicEquipment(any(), any(), any()))
+                .thenReturn(List.of());
+
+        List<EquipmentResponse> responses = equipmentService.searchPublicEquipment("Nonexistent", null, null);
+
+        assertNotNull(responses);
+        assertTrue(responses.isEmpty());
+        verify(reviewRepository, never()).findRatingSummariesByEquipmentIds(anyCollection());
+    }
+
+    @Test
+    @DisplayName("Should use batch rating summaries in getFarmerOwnEquipment without individual N+1 review queries")
+    void testGetFarmerOwnEquipmentUsesBatchRatingSummaries() {
+        when(farmerRepository.existsByEmail("john@farm.com")).thenReturn(true);
+        when(equipmentRepository.findByOwnerEmail("john@farm.com")).thenReturn(List.of(mockEquipment));
+
+        Object[] row = new Object[]{100L, 5L, 4.8};
+        when(reviewRepository.findRatingSummariesByEquipmentIds(anyCollection()))
+                .thenReturn(java.util.Collections.singletonList(row));
+
+        List<EquipmentResponse> responses = equipmentService.getFarmerOwnEquipment("john@farm.com");
+
+        assertNotNull(responses);
+        assertEquals(1, responses.size());
+        assertEquals(4.8, responses.get(0).getRating());
+        assertEquals(5L, responses.get(0).getTotalReviews());
+
+        verify(reviewRepository).findRatingSummariesByEquipmentIds(anyCollection());
+        verify(reviewRepository, never()).countByEquipmentId(anyLong());
+        verify(reviewRepository, never()).getAverageRatingByEquipmentId(anyLong());
+    }
+
+    @Test
+    @DisplayName("Should use findByIdWithOwner in getPublicEquipmentById when available")
+    void testGetPublicEquipmentByIdUsesFindByIdWithOwner() {
+        when(equipmentRepository.findByIdWithOwner(100L)).thenReturn(Optional.of(mockEquipment));
+        when(reviewRepository.countByEquipmentId(100L)).thenReturn(1L);
+        when(reviewRepository.getAverageRatingByEquipmentId(100L)).thenReturn(5.0);
+
+        EquipmentResponse response = equipmentService.getPublicEquipmentById(100L);
+
+        assertNotNull(response);
+        assertEquals(100L, response.getId());
+        assertEquals(5.0, response.getRating());
+        verify(equipmentRepository).findByIdWithOwner(100L);
+    }
 }

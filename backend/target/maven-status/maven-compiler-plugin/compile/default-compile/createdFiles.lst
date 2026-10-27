@@ -23,6 +23,7 @@ com\agrorent\backend\service\impl\FarmerServiceImpl.class
 com\agrorent\backend\service\impl\StorageServiceImpl.class
 com\agrorent\backend\config\SecurityConfig.class
 com\agrorent\backend\controller\EquipmentController.class
+com\agrorent\backend\service\impl\EquipmentServiceImpl$RatingData.class
 com\agrorent\backend\exception\GlobalExceptionHandler.class
 com\agrorent\backend\dto\FarmerLoginRequest.class
 com\agrorent\backend\service\impl\BookingServiceImpl.class
@@ -30,6 +31,7 @@ com\agrorent\backend\service\FileValidationService.class
 com\agrorent\backend\model\Farmer.class
 com\agrorent\backend\dto\FarmerRegistrationRequest.class
 com\agrorent\backend\exception\UnauthorizedActionException.class
+com\agrorent\backend\dto\ImageUploadResponse.class
 com\agrorent\backend\dto\BookingResponse.class
 com\agrorent\backend\repository\FarmerRepository.class
 com\agrorent\backend\security\JwtTokenProvider.class

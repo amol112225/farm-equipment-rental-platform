@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.agrorent.backend.service.EquipmentServiceImplTest
 -------------------------------------------------------------------------------
-Tests run: 14, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.061 s -- in com.agrorent.backend.service.EquipmentServiceImplTest
+Tests run: 18, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.070 s -- in com.agrorent.backend.service.EquipmentServiceImplTest

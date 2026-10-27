@@ -482,6 +482,30 @@ class BookingServiceImplTest {
         existingBooking.setStatus("PENDING");
         assertThrows(IllegalStateException.class, () -> bookingService.completeBooking(100L, "owner@farm.com"));
     }
+
+    @Test
+    @DisplayName("Should use findByIdWithDetails when fetching booking by ID for renter")
+    void testGetBookingByIdPrefersFindByIdWithDetails() {
+        when(bookingRepository.findByIdWithDetails(100L)).thenReturn(Optional.of(existingBooking));
+
+        BookingResponse response = bookingService.getBookingById(100L, "renter@farm.com");
+
+        assertNotNull(response);
+        assertEquals(100L, response.getId());
+        verify(bookingRepository).findByIdWithDetails(100L);
+    }
+
+    @Test
+    @DisplayName("Should use findByIdWithDetails when fetching booking by ID for owner")
+    void testGetOwnerBookingByIdPrefersFindByIdWithDetails() {
+        when(bookingRepository.findByIdWithDetails(100L)).thenReturn(Optional.of(existingBooking));
+
+        BookingResponse response = bookingService.getOwnerBookingById(100L, "owner@farm.com");
+
+        assertNotNull(response);
+        assertEquals(100L, response.getId());
+        verify(bookingRepository).findByIdWithDetails(100L);
+    }
 }
 
 

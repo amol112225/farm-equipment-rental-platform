@@ -50,12 +50,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
                 String email = tokenProvider.getEmailFromToken(jwt);
 
-                Optional<Farmer> farmerOptional = farmerRepository.findByEmail(email);
-                if (farmerOptional.isPresent()) {
-                    Farmer farmer = farmerOptional.get();
-
+                if (StringUtils.hasText(email)) {
                     UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                            farmer.getEmail(),
+                            email,
                             null,
                             Collections.singletonList(new SimpleGrantedAuthority("ROLE_FARMER"))
                     );

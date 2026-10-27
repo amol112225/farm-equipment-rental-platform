@@ -147,7 +147,8 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional(readOnly = true)
     public BookingResponse getBookingById(Long id, String renterEmail) {
-        Booking booking = bookingRepository.findById(id)
+        Booking booking = bookingRepository.findByIdWithDetails(id)
+                .or(() -> bookingRepository.findById(id))
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found with ID: " + id));
 
         String normalizedEmail = renterEmail != null ? renterEmail.trim().toLowerCase() : "";
@@ -244,7 +245,8 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional(readOnly = true)
     public BookingResponse getOwnerBookingById(Long id, String ownerEmail) {
-        Booking booking = bookingRepository.findById(id)
+        Booking booking = bookingRepository.findByIdWithDetails(id)
+                .or(() -> bookingRepository.findById(id))
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found with ID: " + id));
 
         String normalizedEmail = ownerEmail != null ? ownerEmail.trim().toLowerCase() : "";
