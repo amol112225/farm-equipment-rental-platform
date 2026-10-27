@@ -74,7 +74,7 @@ const Navbar = ({ onOpenMyBookings, onOpenOwnerDashboard, onNavigateToHome, curr
                 />
                 <div className="flex flex-col">
                   <span className="text-lg font-bold text-slate-900 tracking-tight leading-tight group-hover:text-emerald-700 transition-colors">
-                    Agri<span className="text-emerald-600">Rent</span>
+                    Agro<span className="text-emerald-600">Rent</span>
                   </span>
                   <span className="text-xs font-medium text-slate-500 tracking-wider uppercase">
                     {t('common.tagline')}
@@ -218,8 +218,8 @@ const Navbar = ({ onOpenMyBookings, onOpenOwnerDashboard, onNavigateToHome, curr
                     type="button"
                     onClick={() => changeLanguage(lang.code)}
                     className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${language === lang.code
-                        ? 'bg-emerald-600 text-white shadow-xs'
-                        : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
                       }`}
                   >
                     {lang.nativeLabel}
