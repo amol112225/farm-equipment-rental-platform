@@ -72,7 +72,7 @@ const Navbar = ({ onOpenMyBookings, onOpenOwnerDashboard, onNavigateToHome, curr
                   alt="AgroRent Logo"
                   className="w-10 h-10 object-contain"
                 />
-                <div className="flex flex-col">
+                <div className="flex-col">
                   <span className="text-lg font-bold text-slate-900 tracking-tight leading-tight group-hover:text-emerald-700 transition-colors">
                     Agro<span className="text-emerald-600">Rent</span>
                   </span>
