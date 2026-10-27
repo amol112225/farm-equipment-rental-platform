@@ -60,24 +60,24 @@ const Navbar = ({ onOpenMyBookings, onOpenOwnerDashboard, onNavigateToHome, curr
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" aria-label="Main Navigation">
           <div className="flex items-center justify-between h-16">
 
-            {/* 1. Left side: AgroRent Logo & Name */}
+            {/* 1. Left side: AgriRent Logo & Name */}
             <div className="flex items-center">
               <a
                 href="#home"
                 onClick={handleLogoClick}
-                className="flex items-center space-x-3 group"
+                className="flex items-center gap-3 sm:gap-3.5 group focus:outline-none"
               >
                 <img
                   src={logo}
-                  alt="AgroRent Logo"
-                  className="w-10 h-10 object-contain"
+                  alt="AgriRent Logo"
+                  className="h-10 w-10 sm:h-11 sm:w-11 md:h-12 md:w-12 object-contain shrink-0 aspect-square"
                 />
-                <div className="flex-col">
-                  <span className="text-lg font-bold text-slate-900 tracking-tight leading-tight group-hover:text-emerald-700 transition-colors">
-                    Agro<span className="text-emerald-600">Rent</span>
+                <div className="flex flex-col justify-center text-left">
+                  <span className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 leading-none group-hover:text-slate-800 transition-colors">
+                    Agri<span className="text-emerald-600">Rent</span>
                   </span>
-                  <span className="text-xs font-medium text-slate-500 tracking-wider uppercase">
-                    {t('common.tagline')}
+                  <span className="text-[10px] sm:text-xs font-semibold text-slate-500 tracking-wider uppercase whitespace-nowrap mt-1 leading-none">
+                    {t ? t('common.tagline') : 'Farm Equipment Rental'}
                   </span>
                 </div>
               </a>

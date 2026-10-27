@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import logo from "../assets/images/agro-rent-logo.png";
+import logo from "../../../assets/images/agro-rent-logo.png";
 
 /**
  * Navbar component for the Farm Equipment Rental Platform.
@@ -27,17 +27,17 @@ const Navbar = () => {
 
           {/* 1. Left side: Farm Equipment Rental Logo & Name */}
           <div className="flex items-center">
-            <a href="#" className="flex items-center space-x-3 group">
+            <a href="#" className="flex items-center gap-3 sm:gap-3.5 group focus:outline-none">
               <img
                 src={logo}
-                alt="AgroRent"
-                className="w-20 h-20"
+                alt="AgriRent Logo"
+                className="h-10 w-10 sm:h-11 sm:w-11 md:h-12 md:w-12 object-contain shrink-0 aspect-square"
               />
-              <div className="flex flex-col">
-                <span className="text-lg font-bold text-slate-900 tracking-tight leading-tight group-hover:text-emerald-700 transition-colors">
+              <div className="flex flex-col justify-center text-left">
+                <span className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 leading-none group-hover:text-slate-800 transition-colors">
                   Agri<span className="text-emerald-600">Rent</span>
                 </span>
-                <span className="text-xs font-medium text-slate-500 tracking-wider uppercase">
+                <span className="text-[10px] sm:text-xs font-semibold text-slate-500 tracking-wider uppercase whitespace-nowrap mt-1 leading-none">
                   Farm Equipment Rental
                 </span>
               </div>
